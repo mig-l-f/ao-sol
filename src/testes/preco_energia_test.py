@@ -2,7 +2,7 @@ from datetime import datetime
 from sqlite3 import apilevel
 import unittest
 import pandas as pd
-from ..src.aosol.analise import analise_precos_energia as ape
+from ..aosol.analise import analise_precos_energia as ape
 
 class TestPrecoEnergia(unittest.TestCase):
 

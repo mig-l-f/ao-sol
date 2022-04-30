@@ -1,9 +1,9 @@
 import pandas as pd
 import unittest
 
-from aosol_project.src.aosol.analise.indicadores_autoconsumo import indicadores_autoconsumo
-from ..src.aosol.analise import analise_financeira as af
-from ..src.aosol.analise import analise_precos_energia as ape
+from ..aosol.analise.indicadores_autoconsumo import indicadores_autoconsumo
+from ..aosol.analise import analise_financeira as af
+from ..aosol.analise import analise_precos_energia as ape
 from IPython.display import HTML, display_html
 
 class TestAnaliseFinanceira(unittest.TestCase):

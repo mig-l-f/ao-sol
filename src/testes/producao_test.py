@@ -1,6 +1,6 @@
 from datetime import datetime
 import unittest
-from ..src.aosol.series import producao
+from ..aosol.series import producao
 import pandas as pd
 
 class TestProducao(unittest.TestCase):
