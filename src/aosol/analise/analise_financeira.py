@@ -1,7 +1,7 @@
 """ Contem metodos para analise financeira de um projecto.
 
 Calculo do VAL, TIR, Tempo de retorno de um projecto e o LCOE (levelized cost of energy)
-do sistema produtor.
+do sistema produtor
 
 .. math:
     VAL_n = \sum_{k=0}^{n} \frac{CF_{(in)}(k) - CF_{(out)}(k)}{(1+i)^k}
@@ -23,7 +23,8 @@ Calculo do LCOE pelo método descrito no simulador NREL [2].
 """
 import pandas as pd
 import numpy as np
-from aosol_project.src.aosol.analise.indicadores_financeiros import indicadores_financeiros
+#from aosol_project.src.aosol.analise.indicadores_financeiros import indicadores_financeiros
+from .indicadores_financeiros import indicadores_financeiros
 
 MESES = {1:'jan', 2:'fev', 3:'mar', 4:'abr', 5:'mai', 6:'jun',
          7:'jul', 8:'ago', 9:'set', 10:'out', 11:'nov', 12:'dez'}
@@ -117,21 +118,25 @@ def analise_financeira_projecto(energia
     Returns:
     --------
     data: indicadores_financeiros
-        objecto com os indicadores financeiros val, tir, tempo retorno, capex, opex, tempo_vida e lcoe
+        Os indicadores financeiros val, tir, tempo retorno, capex, opex, tempo_vida e lcoe
+    financeiro: pd.DataFrame
+        Fluxos de caixa anuais utilizados na analise
     """
     financeiro = pd.DataFrame({'ano' : range(ano_0, ano_0+tempo_vida+1, 1)})
     financeiro['ano_projecto'] = range(tempo_vida+1)
     
     # entradas
     rd = taxa_degradacao_sistema / 100
+    # ano 0 operacao é o 1o ano financeiro, n ha perda de energia no ano 0
+    financeiro['ano_operacao'] = np.maximum(financeiro['ano_projecto']-1,0)
     # aplica taxa degradacao a energia 
-    financeiro['cash flow in'] = financeiro.apply(lambda x : func_tarifario(energia*(1-rd*(x['ano_projecto']-0.5)), x['ano'], 'autoconsumo')[0], axis=1)
+    financeiro['cash flow in'] = financeiro.apply(lambda x : func_tarifario(energia*(1-rd*(x['ano_operacao']-0.5)), x['ano'], 'autoconsumo')[0], axis=1)
+    financeiro['cash flow in'].iloc[0] = 0  # ano 0 não ha entrada de dinheiro
     # calcula venda a rede se incluido
     if (func_venda_rede is not None):
-        financeiro['cash venda rede'] = financeiro.apply( lambda x : func_venda_rede(energia*(1-rd*(x['ano_projecto']-0.5)), 'injeccao_rede')[0], axis=1)
+        financeiro['cash venda rede'] = financeiro.apply( lambda x : func_venda_rede(energia*(1-rd*(x['ano_operacao']-0.5)), 'injeccao_rede')[0], axis=1)
+        financeiro['cash venda rede'].iloc[0] = 0 # ano 0 não ha entrada dinheiro
         financeiro['cash flow in'] = financeiro['cash flow in'] + financeiro['cash venda rede']
-
-    financeiro['cash flow in'].iloc[0] = 0  # ano 0 não ha entrada de dinheiro
 
     # saida
     financeiro['cash flow out'] = [opex for i in range(tempo_vida+1)]
@@ -155,7 +160,7 @@ def analise_financeira_projecto(energia
     if (indicadores_autoconsumo is not None):
         lcoe = _lcoe(tempo_vida, capex, opex, taxa_actualizacao, indicadores_autoconsumo, taxa_degradacao_sistema)
 
-    return indicadores_financeiros(val, tir, tr, capex, opex, tempo_vida, lcoe)
+    return indicadores_financeiros(val, tir, tr, capex, opex, tempo_vida, lcoe), financeiro
 
 def _val(cash_flows, taxa_actualizacao):
     """ Valor actulizado liquido pelo método dos fluxo de caixa descontados.

@@ -60,7 +60,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df = df.set_index('stamp')
         calc_tarifario = lambda en, ano, col : ape.calcula_tarifario_simples(en, 1, col)
 
-        fin = af.analise_financeira_projecto(df, 60, 10, 1, 2021, 5, 0, calc_tarifario)
+        fin, _ = af.analise_financeira_projecto(df, 60, 10, 1, 2021, 5, 0, calc_tarifario)
         self.assertAlmostEqual(7.948, fin.val, 3)
         self.assertAlmostEqual(5.3686, fin.tir, 4)
         self.assertAlmostEqual(4.4, fin.tempo_retorno, 1)
@@ -79,9 +79,9 @@ class TestAnaliseFinanceira(unittest.TestCase):
         calc_tarifario = lambda en, ano, col : ape.calcula_tarifario_simples(en, 1, col)
 
         # taxa degradacao = 0.7%
-        fin = af.analise_financeira_projecto(df, 60, 10, 1, 2021, 5, 0.7, calc_tarifario)
-        self.assertAlmostEqual(5.9258, fin.val, 4)
-        self.assertAlmostEqual(4.307, fin.tir, 3)
+        fin, _ = af.analise_financeira_projecto(df, 60, 10, 1, 2021, 5, 0.7, calc_tarifario)
+        self.assertAlmostEqual(6.741, fin.val, 3)
+        self.assertAlmostEqual(4.752, fin.tir, 3)
         self.assertAlmostEqual(4.5, fin.tempo_retorno, 1)
         self.assertAlmostEqual(0, fin.lcoe)
 
@@ -98,7 +98,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         calc_tarifario = lambda en, ano, col : ape.calcula_tarifario_simples(en, 1, col)
         calc_venda_rede = lambda en, col : ape.calcula_tarifario_simples(en, 1, col)
 
-        fin = af.analise_financeira_projecto(df, 60, 10, 1, 2021, 5, 0, calc_tarifario, func_venda_rede=calc_venda_rede)
+        fin, _ = af.analise_financeira_projecto(df, 60, 10, 1, 2021, 5, 0, calc_tarifario, func_venda_rede=calc_venda_rede)
         self.assertAlmostEqual(27.362, fin.val, 3)
         self.assertAlmostEqual(15.238, fin.tir, 3)
         self.assertAlmostEqual(3.4, fin.tempo_retorno, 1)
@@ -117,10 +117,10 @@ class TestAnaliseFinanceira(unittest.TestCase):
         calc_tarifario = lambda en, ano, col : ape.calcula_tarifario_simples(en, 1, col)
         calc_venda_rede = lambda en, col : ape.calcula_tarifario_simples(en, 1, col)
 
-        fin = af.analise_financeira_projecto(df, 60, 10, 1, 2021, 5, 0.7, calc_tarifario, func_venda_rede=calc_venda_rede)
-        self.assertAlmostEqual(25.0025, fin.val, 4)
-        self.assertAlmostEqual(14.201, fin.tir, 3)
-        self.assertAlmostEqual(3.5, fin.tempo_retorno, 1)
+        fin, _ = af.analise_financeira_projecto(df, 60, 10, 1, 2021, 5, 0.7, calc_tarifario, func_venda_rede=calc_venda_rede)
+        self.assertAlmostEqual(25.954, fin.val, 3)
+        self.assertAlmostEqual(14.670, fin.tir, 3)
+        self.assertAlmostEqual(3.4, fin.tempo_retorno, 1)
         self.assertAlmostEqual(0, fin.lcoe)
 
     def test_val(self):
