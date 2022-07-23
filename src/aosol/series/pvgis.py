@@ -1,7 +1,8 @@
 """
-Get, read, and parse data from `PVGIS <https://ec.europa.eu/jrc/en/pvgis>`_.
+Copyright (c) 2013-2021, Sandia National Laboratories and pvlib python Development Team
+All rights reserved.
 
-SOURCE: PVLIB in <https://pvlib-python.readthedocs.io/en/stable/_modules/pvlib/iotools/pvgis.html>
+Get, read, and parse data from `PVGIS <https://ec.europa.eu/jrc/en/pvgis>`_.
 
 For more information, see the following links:
 * `Non-interactive tools <https://joint-research-centre.ec.europa.eu/pvgis-photovoltaic-geographical-information-system/getting-started-pvgis/api-non-interactive-service_en>`_
