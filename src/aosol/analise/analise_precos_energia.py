@@ -9,28 +9,58 @@ from xml.etree.ElementInclude import include
 import pandas as pd
 pd.options.mode.chained_assignment = None
 import calendar
+from typing import NamedTuple
+from enum import Enum
 
-def calcula_tarifario_simples(energia, custo_kwh, col):
+class Tarifario(Enum):
+    Simples = 1,
+    Bihorario = 2,
+    Trihorario = 3
+
+class TarifarioEnergia(NamedTuple):
+    custo_kwh_simples : float = 0.0
+    custo_bi_kwh_fora_vazio : float = 0.0
+    custo_bi_kwh_vazio : float = 0.0
+    custo_tri_kwh_ponta : float = 0.0
+    custo_tri_kwh_cheia : float = 0.0
+    custo_tri_kwh_vazio : float = 0.0
+    preco_venda_kwh : float = 0.0
+
+def calcula_tarifario_simples(energia, custo_kwh, col, taxa_inflacao=0, ano_operacao=0):
     """ Calcula custo no tarifario simples
 
     Args:
-        energia_df: data frame com a serie de energia
-        custo_kwh: custo do kwh em tarifario simples
-        col: coluna da df a qual aplicar o custo
+        energia : pandas.DataFrame
+            Data frame com a serie de energia
+        custo_kwh : float
+            Custo do kWh em tarifario simples em €/kWh
+        col: string
+            Coluna da dataframe a qual aplicar o custo
+        taxa_inflacao : float, default: 0
+            Taxa de inflação em %, so utilizado para análise financeira
+        ano_operacao : int, default: 0
+            Ano de operação do projecto. Ano de operação no 1º ano é 0, para no 1º ano ser utilizado o preço sem inflação. 
     """
-    energia['custo'] = energia[col] * custo_kwh
+    energia['custo'] = energia[col] * custo_kwh * (1+taxa_inflacao/100)**ano_operacao
     return energia['custo'].sum(), energia['custo']
 
-def calcula_tarifario_bihorario_diario(energia, custo_kwh_fora_vazio, custo_kwh_vazio, col):
+def calcula_tarifario_bihorario_diario(energia, custo_kwh_fora_vazio, custo_kwh_vazio, col, taxa_inflacao=0, ano_operacao=0):
     """ Calcula custo total no tarifario bihorario diario. Nao varia de dia da semana nem por
     inverno e verão.
     
     Args:
-        energia : dataframe com energia [kWh]
-        custo_kwh_fora_vazio : preco fora vazio [€/kWh]
-        custo_kwh_vazio : preco vazio [€/kWh]
-        col : coluna dataframe com a energia
-
+        energia : pandas.DataFrame 
+            Dataframe com energia [kWh]
+        custo_kwh_fora_vazio : float
+            Preço fora vazio [€/kWh]
+        custo_kwh_vazio : float
+            Preço vazio [€/kWh]
+        col : string
+            Coluna dataframe com a energia
+        taxa_inflacao : float, default: 0
+            Taxa de inflação em %, so utilizado para análise financeira
+        ano_operacao : int, default: 0
+            Ano de operação do projecto. Ano de operação no 1º ano é 0, para no 1º ano ser utilizado o preço sem inflação. 
     Returns:
         custo total da energia. data frame com coluna custo por timestamp
     """
@@ -39,23 +69,33 @@ def calcula_tarifario_bihorario_diario(energia, custo_kwh_fora_vazio, custo_kwh_
     #  Vazio : 22:00 as 08:00
     #  Fora Vazio : 08:00 as 22:00
     bins = [0, 8, 22, 24]
-    precos = pd.DataFrame({'bins': [1, 2, 3], 'preco': [custo_kwh_vazio, custo_kwh_fora_vazio, custo_kwh_vazio]})
+    precos = pd.DataFrame({'bins': [1, 2, 3], 'preco': [custo_kwh_vazio*(1+taxa_inflacao/100)**ano_operacao, \
+                                                        custo_kwh_fora_vazio*(1+taxa_inflacao/100)**ano_operacao, \
+                                                        custo_kwh_vazio*(1+taxa_inflacao/100)**ano_operacao]})
     energia_df['bins'] = pd.cut(energia_df.index.hour, bins, labels=precos.bins, right=False)
     energia_df['custo'] = energia_df[col] * energia_df['bins'].map(precos.set_index('bins')['preco'])
     energia_df = energia_df.drop('bins', 1)
     
     return energia_df['custo'].sum(), energia_df['custo']
 
-def calcula_tarifario_trihorario_diario(energia, ano, c_ponta, c_cheias, c_vazio, col):
+def calcula_tarifario_trihorario_diario(energia, ano, c_ponta, c_cheias, c_vazio, col, taxa_inflacao=0, ano_operacao=0):
     """ Calcula custo total tarifario tri-horario diario, Não varia de dia da semana. Varia por inverno e verão.
 
     Args:
-        energia : dataframe com energia [kWh]
-        ano : ano de calculo
-        c_ponta : preco ponta [€/kWh]
-        c_cheias : preco cheias [€/kWh]
-        c_vazio : preco vazio [€/kWh]
-        col : coluna dataframe com a energia
+        energia : pandas.DataFrame 
+            Dataframe com energia [kWh]
+        c_ponta : float
+            Preço kwh nas horas de ponta [€/kWh]
+        c_cheia : float
+            Preço kwh nas horas de cheia [€/kWh]
+        c_vazio : float
+            Preço kwh nas horas de vazio [€/kWh]
+        col : string
+            Coluna dataframe com a energia
+        taxa_inflacao : float, default: 0
+            Taxa de inflação em %, so utilizado para análise financeira
+        ano_operacao : int, default: 0
+            Ano de operação do projecto. Ano de operação no 1º ano é 0, para no 1º ano ser utilizado o preço sem inflação. 
     Returns:
         custo total da energia. data frame com coluna custo por timestamp
     """
@@ -72,7 +112,13 @@ def calcula_tarifario_trihorario_diario(energia, ano, c_ponta, c_cheias, c_vazio
 
     # n intervalos e precos sao os mesmos, so mudam os limites
     precos = pd.DataFrame({'bins': [1, 2, 3, 4, 5, 6, 7], 
-                            'preco': [c_vazio, c_cheias, c_ponta, c_cheias, c_ponta, c_cheias, c_vazio]})
+                            'preco': [c_vazio*(1+taxa_inflacao/100)**ano_operacao, \
+                                      c_cheias*(1+taxa_inflacao/100)**ano_operacao, \
+                                      c_ponta*(1+taxa_inflacao/100)**ano_operacao, \
+                                      c_cheias*(1+taxa_inflacao/100)**ano_operacao, \
+                                      c_ponta*(1+taxa_inflacao/100)**ano_operacao, \
+                                      c_cheias*(1+taxa_inflacao/100)**ano_operacao, \
+                                      c_vazio*(1+taxa_inflacao/100)**ano_operacao]})
 
     # verifica hora legal
     dom_mar, dom_out = datas_horario_legal(ano)   
@@ -85,13 +131,13 @@ def calcula_tarifario_trihorario_diario(energia, ano, c_ponta, c_cheias, c_vazio
     bins_inv = [0, 8, 8.5, 10.5, 18, 20.5, 22, 24]
     df_inv = energia_df[(energia_df['hora_legal'] == 1) | (energia_df['hora_legal'] == 3)]
     df_inv['bins'] = pd.cut(df_inv.index.hour + df_inv.index.minute / 60, bins_inv, labels=precos.bins, right=False)
-    df_inv['custo'] = df_inv[col] * df_inv['bins'].map(precos.set_index('bins')['preco'])
+    df_inv.loc[:,'custo'] = df_inv[col] * df_inv['bins'].map(precos.set_index('bins')['preco'])
     
     # verao
     bins_ver = [0, 8, 10.5, 13, 19.5, 21, 22, 24]
     df_ver = energia_df[(energia_df['hora_legal'] == 2)]
-    df_ver['bins'] = pd.cut(df_ver.index.hour + df_ver.index.minute / 60, bins_ver, labels=precos.bins, right=False)
-    df_ver['custo'] = df_ver[col] * df_ver['bins'].map(precos.set_index('bins')['preco'])
+    df_ver.loc[:,'bins'] = pd.cut(df_ver.index.hour + df_ver.index.minute / 60, bins_ver, labels=precos.bins, right=False)
+    df_ver.loc[:,'custo'] = df_ver[col] * df_ver['bins'].map(precos.set_index('bins')['preco'])
     df_inv_ver = pd.concat([df_inv, df_ver])
     energia_df = energia_df.merge(df_inv_ver['custo'],how='inner',left_index=True, right_index=True, sort=True)
 
