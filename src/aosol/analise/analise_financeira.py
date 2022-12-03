@@ -23,6 +23,9 @@ Calculo do LCOE pelo método descrito no simulador NREL [2].
 """
 import pandas as pd
 import numpy as np
+from calendar import month, monthrange
+
+from sympy import elliptic_f
 from .indicadores_financeiros import indicadores_financeiros
 from . import analise_precos_energia as ape
 
@@ -31,9 +34,9 @@ MESES = {1:'jan', 2:'fev', 3:'mar', 4:'abr', 5:'mai', 6:'jun',
 MESES_COMPLETO = {1: 'Janeiro', 2:'Fevereiro', 3: u'Março', 4:'Abril',
                5:'Maio', 6:'Junho', 7:'Julho', 8:'Agosto',
                9:'Setembro', 10:'Outubro', 11:'Novembro', 12:'Dezembro'}
-    
-def analise_poupanca_anual(energia, tarifario, precos_energia, venda_rede, ano_tarifario=0):
-    """ Calcula os custos em cada mes e anual da fatura sem UPAC e com UPAC, e a poupanca. Pode
+
+def analise_poupanca_anual_fatura(energia, tarifario, precos_energia, venda_rede, ano_tarifario=0):
+    """ Calcula os custos de fatura em cada mes e anual da com e sem UPAC, e a respectiva poupanca. Pode
     calcular também considerando a venda do excedente à rede.
 
     Args:
@@ -55,52 +58,87 @@ def analise_poupanca_anual(energia, tarifario, precos_energia, venda_rede, ano_t
     mensal: pandas.DataFrame 
         Com os custos mensais e agregado anual
     """
-    # lambda tarifario
-    if tarifario == ape.Tarifario.Simples:
-        func_tarifario = lambda energia, col: ape.calcula_tarifario_simples(energia, precos_energia.custo_kwh_simples, col)
-    elif tarifario == ape.Tarifario.Bihorario:
-        func_tarifario = lambda energia, col: ape.calcula_tarifario_bihorario_diario(energia, precos_energia.custo_bi_kwh_fora_vazio, precos_energia.custo_bi_kwh_vazio, col)
-    elif tarifario == ape.Tarifario.Trihorario:
-        func_tarifario = lambda energia, col: ape.calcula_tarifario_trihorario_diario(energia, ano_tarifario, precos_energia.custo_tri_kwh_ponta, precos_energia.custo_tri_kwh_cheia, precos_energia.custo_tri_kwh_vazio, col)
+    
+    # lambda energia e tarifario correspondente
+    if (tarifario == ape.Tarifario.Simples):
+        func_energia = lambda ener, col, ano : ape.calcula_energia_mensal_tarifario_simples(ener, col)
+        # x contem energia mensal do tarifario simples, consumo esta na coluna 'consumo'
+        func_calculo_faturas = lambda x : ape.calcula_fatura_tarifario_simples(x['consumo'], \
+            monthrange(x.name.year, x.name.month)[1], \
+            precos_energia.custo_kwh_simples, \
+            precos_energia.pot_contratada, \
+            precos_energia.pot_contratada_custo_dia, \
+            precos_energia.pot_contratada_termo_fixo_redes_custo_dia) 
+    elif (tarifario == ape.Tarifario.Bihorario):
+        func_energia = lambda ener, col, ano : ape.calcula_energia_mensal_tarifario_bihorario(ener, col)
+        # x contem energia mensal do tarifario bihorario, consumos nas colunas 'fora_vazio' e 'vazio'
+        func_calculo_faturas = lambda x : ape.calcula_fatura_tarifario_bihorario(x['fora_vazio'], x['vazio'], \
+            monthrange(x.name.year, x.name.month)[1], \
+            precos_energia.custo_bi_kwh_fora_vazio, precos_energia.custo_bi_kwh_vazio, \
+            precos_energia.pot_contratada, \
+            precos_energia.pot_contratada_custo_dia, \
+            precos_energia.pot_contratada_termo_fixo_redes_custo_dia) 
+    elif (tarifario == ape.Tarifario.Trihorario):
+        func_energia = lambda ener, col, ano : ape.calcula_energia_mensal_tarifario_trihorario(ener, col, ano)
+        func_calculo_faturas = lambda x : ape.calcula_fatura_tarifario_trihorario(x['ponta'], x['cheia'], x['vazio'], \
+            monthrange(x.name.year, x.name.month)[1], \
+            precos_energia.custo_tri_kwh_ponta, \
+            precos_energia.custo_tri_kwh_cheia, \
+            precos_energia.custo_tri_kwh_vazio, \
+            precos_energia.pot_contratada, \
+            precos_energia.pot_contratada_custo_dia, \
+            precos_energia.pot_contratada_termo_fixo_redes_custo_dia) 
 
-    # lambda venda rede
     if venda_rede:
-        func_venda_rede = lambda energia, col: ape.calcula_tarifario_simples(energia, precos_energia.preco_venda_kwh, col)
+        # venda rede usa funcao para multiplicar injeccao com preco directamente
+        func_venda_rede = lambda energia, col: energia[col] * precos_energia.preco_venda_kwh
 
-    # fatura sem upac = consumo total
-    _, custo = func_tarifario(energia, 'consumo')
-    faturas = custo.to_frame('fatura sem upac')
+    # fatura sem upac
+    energia_sem_upac_mensal = func_energia(energia, 'consumo', ano_tarifario)
+    faturas_sem_upac = energia_sem_upac_mensal.apply(lambda ener_mensal : func_calculo_faturas(ener_mensal), \
+         axis=1).to_frame('faturas_sem_upac')
+    faturas_sem_upac[['sem_upac_c_iva', 'sem_upac_s_iva']] = pd.DataFrame(faturas_sem_upac['faturas_sem_upac'].to_list(), index=faturas_sem_upac.index)
+    faturas_sem_upac = faturas_sem_upac.drop(columns=['faturas_sem_upac'])
 
-    # fatura com upac = consumo rede
-    _, custo = func_tarifario(energia, 'consumo_rede')
-    faturas =  faturas.merge(custo.to_frame('fatura com upac'), how='inner', left_index=True, right_index=True) #energia['custo'].copy()
+    # fatura com upac
+    energia_com_upac_mensal = func_energia(energia, 'consumo_rede', ano_tarifario)
+    faturas_com_upac = energia_com_upac_mensal.apply(lambda ener_mensal : func_calculo_faturas(ener_mensal), \
+        axis=1).to_frame('faturas_com_upac')
+    faturas_com_upac[['com_upac_c_iva', 'com_upac_s_iva']] = pd.DataFrame(faturas_com_upac['faturas_com_upac'].to_list(), index=faturas_com_upac.index)
+    faturas_com_upac = faturas_com_upac.drop(columns=['faturas_com_upac'])
+
+    # calculo poupanca
+    faturas = faturas_sem_upac['sem_upac_c_iva'].to_frame('fatura sem upac')
+    faturas =  faturas.merge(faturas_com_upac['com_upac_c_iva'].to_frame('fatura com upac'), how='inner', left_index=True, right_index=True) #energia['custo'].copy()
     faturas['poupanca'] = faturas['fatura sem upac'] - faturas['fatura com upac']
 
     # venda a rede = injeccao rede
     if venda_rede:
-        _, ganho = func_venda_rede(energia, 'injeccao_rede')
-        faturas =  faturas.merge(ganho.to_frame('venda a rede'), how='inner', left_index=True, right_index=True) #energia['custo'].copy()
+        ganho = func_venda_rede(energia, 'injeccao_rede')
+        ganho = ganho.resample('M').sum().to_frame('venda a rede')
+        faturas =  faturas.merge(ganho, how='inner', left_index=True, right_index=True) #energia['custo'].copy()
         faturas['poupanca'] = faturas['poupanca'] + faturas['venda a rede']
-    
+
     mensal = faturas.groupby([faturas.index.month]).sum()
     mensal.index.names = ['mes']
     mensal.index = mensal.index.map(MESES_COMPLETO)
     mensal.loc['Anual'] = mensal.sum(axis=0)
     return mensal
 
-def analise_financeira_projecto(energia 
-                               , capex
-                               , opex
-                               , taxa_actualizacao
-                               , ano_0
-                               , tempo_vida                               
-                               , taxa_degradacao_sistema
-                               , taxa_inflacao
-                               , tarifario
-                               , precos_energia
-                               , venda_rede
-                               , indicadores_autoconsumo = None):
-    """ Calcula VAL, TIR e Tempo de retorno de projecto, LCOE utilizando o método dos cash-flows descontados.
+def analise_financeira_projecto_faturas(energia 
+                                      , capex
+                                      , opex
+                                      , taxa_actualizacao
+                                      , ano_0
+                                      , tempo_vida                               
+                                      , taxa_degradacao_sistema
+                                      , taxa_inflacao
+                                      , tarifario
+                                      , precos_energia
+                                      , venda_rede
+                                      , indicadores_autoconsumo = None):
+    """ Calcula VAL, TIR e Tempo de retorno de projecto, LCOE utilizando o método dos cash-flows descontados. 
+    Poupança calculada a partir do valores da faturas.
 
     Args:
     -----
@@ -138,7 +176,6 @@ def analise_financeira_projecto(energia
     financeiro: pd.DataFrame
         Fluxos de caixa anuais utilizados na analise
     """
-
     financeiro = pd.DataFrame({'ano' : range(ano_0, ano_0+tempo_vida+1, 1)})
     financeiro['ano_projecto'] = range(tempo_vida+1)
     # ano 0 operacao é o 1o ano financeiro, n ha perda de energia no ano 0
@@ -146,27 +183,209 @@ def analise_financeira_projecto(energia
 
     # conversao taxas
     rd = taxa_degradacao_sistema / 100
+    infl = taxa_inflacao / 100
 
-    # lambda tarifario
-    if tarifario == ape.Tarifario.Simples:
-        func_tarifario = lambda energia, ano, ano_operacao, col: ape.calcula_tarifario_simples(energia, precos_energia.custo_kwh_simples, col, taxa_inflacao, ano_operacao)
-    elif tarifario == ape.Tarifario.Bihorario:
-        func_tarifario = lambda energia, ano, ano_operacao, col: ape.calcula_tarifario_bihorario_diario(energia, precos_energia.custo_bi_kwh_fora_vazio, precos_energia.custo_bi_kwh_vazio, col, taxa_inflacao, ano_operacao)
-    elif tarifario == ape.Tarifario.Trihorario:
-        func_tarifario = lambda energia, ano, ano_operacao, col: ape.calcula_tarifario_trihorario_diario(energia, ano, precos_energia.custo_tri_kwh_ponta, precos_energia.custo_tri_kwh_cheia, precos_energia.custo_tri_kwh_vazio, col, taxa_inflacao, ano_operacao)
+    # Lambdas
+    if (tarifario == ape.Tarifario.Simples):
+        func_energia = lambda ener, col, ano : ape.calcula_energia_mensal_tarifario_simples(ener, col)
+        # custo sem upac é o consumo total e precos alterados de inflacao
+        func_custo_sem_upac_mensal_faturas = lambda cons_mensal, infl, ano_op, ano : \
+            cons_mensal.apply(lambda y : ape.calcula_fatura_tarifario_simples(y['consumo'], \
+                                                 monthrange(int(ano), y.name.month)[1], \
+                                                 precos_energia.custo_kwh_simples*(1+infl)**ano_op, \
+                                                 precos_energia.pot_contratada, \
+                                                 precos_energia.pot_contratada_custo_dia*(1+infl)**ano_op, \
+                                                 precos_energia.pot_contratada_termo_fixo_redes_custo_dia*(1+infl)**ano_op)[0], axis=1)
+        # custo com upac é a producao alterada pela degradacao e precos alterados pela inflacao
+        func_custo_com_upac_mensal_faturas = lambda cons_mensal, prod_mensal, rd, infl, ano_op, ano : \
+            (cons_mensal - prod_mensal*(1-rd*np.maximum(ano_op-0.5,0))).apply(lambda y : \
+                ape.calcula_fatura_tarifario_simples(y['consumo'], \
+                                                    monthrange(int(ano), y.name.month)[1], \
+                                                    precos_energia.custo_kwh_simples*(1+infl)**ano_op, \
+                                                    precos_energia.pot_contratada, \
+                                                    precos_energia.pot_contratada_custo_dia*(1+infl)**ano_op, \
+                                                    precos_energia.pot_contratada_termo_fixo_redes_custo_dia*(1+infl)**ano_op)[0], axis=1)
+    elif (tarifario == ape.Tarifario.Bihorario):
+        func_energia = lambda ener, col, ano : ape.calcula_energia_mensal_tarifario_bihorario(ener, col)
+        # custo sem upac é o consumo total e precos alterados de inflacao
+        func_custo_sem_upac_mensal_faturas = lambda cons_mensal, infl, ano_op, ano : \
+            cons_mensal.apply(lambda y : ape.calcula_fatura_tarifario_bihorario(y['fora_vazio'], y['vazio'], \
+                                                 monthrange(int(ano), y.name.month)[1], \
+                                                 precos_energia.custo_bi_kwh_fora_vazio*(1+infl)**ano_op, \
+                                                 precos_energia.custo_bi_kwh_vazio**(1+infl)**ano_op, \
+                                                 precos_energia.pot_contratada, \
+                                                 precos_energia.pot_contratada_custo_dia*(1+infl)**ano_op, \
+                                                 precos_energia.pot_contratada_termo_fixo_redes_custo_dia*(1+infl)**ano_op)[0], axis=1)
+        # custo com upac é a producao alterada pela degradacao e precos alterados pela inflacao
+        func_custo_com_upac_mensal_faturas = lambda cons_mensal, prod_mensal, rd, infl, ano_op, ano : \
+            (cons_mensal - prod_mensal*(1-rd*np.maximum(ano_op-0.5,0))).apply(lambda y : \
+                ape.calcula_fatura_tarifario_bihorario(y['fora_vazio'], y['vazio'], \
+                                                 monthrange(int(ano), y.name.month)[1], \
+                                                 precos_energia.custo_bi_kwh_fora_vazio*(1+infl)**ano_op, \
+                                                 precos_energia.custo_bi_kwh_vazio**(1+infl)**ano_op, \
+                                                 precos_energia.pot_contratada, \
+                                                 precos_energia.pot_contratada_custo_dia*(1+infl)**ano_op, \
+                                                 precos_energia.pot_contratada_termo_fixo_redes_custo_dia*(1+infl)**ano_op)[0], axis=1)
+                                            
+    elif (tarifario == ape.Tarifario.Trihorario):
+        func_energia = lambda ener, col, ano : ape.calcula_energia_mensal_tarifario_trihorario(ener, col, ano)
+        # custo sem upac é o consumo total e precos alterados de inflacao
+        func_custo_sem_upac_mensal_faturas = lambda cons_mensal, infl, ano_op, ano : \
+            cons_mensal.apply(lambda y : ape.calcula_fatura_tarifario_trihorario(y['ponta'], y['cheia'], y['vazio'], \
+                                                 monthrange(int(ano), y.name.month)[1], \
+                                                 precos_energia.custo_tri_kwh_ponta*(1+infl)**ano_op, \
+                                                 precos_energia.custo_tri_kwh_cheia*(1+infl)**ano_op, \
+                                                 precos_energia.custo_tri_kwh_vazio*(1+infl)**ano_op, \
+                                                 precos_energia.pot_contratada, \
+                                                 precos_energia.pot_contratada_custo_dia*(1+infl)**ano_op, \
+                                                 precos_energia.pot_contratada_termo_fixo_redes_custo_dia*(1+infl)**ano_op)[0], axis=1)
+        # custo com upac é a producao alterada pela degradacao e precos alterados pela inflacao
+        func_custo_com_upac_mensal_faturas = lambda cons_mensal, prod_mensal, rd, infl, ano_op, ano : \
+            (cons_mensal - prod_mensal*(1-rd*np.maximum(ano_op-0.5,0))).apply(lambda y : \
+                ape.calcula_fatura_tarifario_trihorario(y['ponta'], y['cheia'], y['vazio'], \
+                                                 monthrange(int(ano), y.name.month)[1], \
+                                                 precos_energia.custo_tri_kwh_ponta*(1+infl)**ano_op, \
+                                                 precos_energia.custo_tri_kwh_cheia*(1+infl)**ano_op, \
+                                                 precos_energia.custo_tri_kwh_vazio*(1+infl)**ano_op, \
+                                                 precos_energia.pot_contratada, \
+                                                 precos_energia.pot_contratada_custo_dia*(1+infl)**ano_op, \
+                                                 precos_energia.pot_contratada_termo_fixo_redes_custo_dia*(1+infl)**ano_op)[0], axis=1)
+
 
     # lambda venda rede
     if venda_rede:
-        func_venda_rede = lambda energia, ano_operacao, col: ape.calcula_tarifario_simples(energia, precos_energia.preco_venda_kwh, col, taxa_inflacao, ano_operacao)
+        func_venda_rede = lambda energia, rd, infl, ano_op, col: (energia[col]*(1-rd*np.maximum(ano_op-0.5,0))*precos_energia.preco_venda_kwh*(1+infl)**ano_op).sum() 
+
+    # consumo e autoconsumo mensal ano 0
+    consumo_mensal_sem_upac = func_energia(energia, 'consumo', ano_0)
+    consumo_mensal_com_upac = func_energia(energia, 'consumo_rede', ano_0)
+    producao_mensal = consumo_mensal_sem_upac - consumo_mensal_com_upac
 
     # calculo poupanca energia
-    financeiro['cash flow in'] = financeiro.apply(lambda x : func_tarifario(energia*(1-rd*np.maximum(x['ano_operacao']-0.5,0)), x['ano'], x['ano_operacao'], 'autoconsumo')[0], axis=1)
+    financeiro['custo_anual_sem_upac'] = financeiro.apply(lambda x : func_custo_sem_upac_mensal_faturas(consumo_mensal_sem_upac, infl, x['ano_operacao'], x['ano']).sum(), axis=1)
+    financeiro['custo_anual_com_upac'] = financeiro.apply(lambda x : func_custo_com_upac_mensal_faturas(consumo_mensal_sem_upac, producao_mensal, rd, infl, x['ano_operacao'], x['ano']).sum(), axis=1) 
+    financeiro['cash flow in'] = financeiro['custo_anual_sem_upac'] - financeiro['custo_anual_com_upac']
     financeiro['cash flow in'].iat[0] = 0  # ano 0 não ha entrada de dinheiro
 
     # calcula venda a rede se incluido
     if venda_rede:
-        financeiro['cash venda rede'] = financeiro.apply( lambda x : func_venda_rede(energia*(1-rd*np.maximum(x['ano_operacao']-0.5,0)), x['ano_operacao'], 'injeccao_rede')[0], axis=1)
+        financeiro['cash venda rede'] = financeiro.apply( lambda x : func_venda_rede(energia, rd, infl, x['ano_operacao'], 'injeccao_rede'), axis=1)
         financeiro['cash venda rede'].iat[0] = 0 # ano 0 não ha entrada dinheiro
+        financeiro['cash flow in'] = financeiro['cash flow in'] + financeiro['cash venda rede']
+
+
+    # saida
+    financeiro['cash flow out'] = [opex for i in range(tempo_vida+1)]
+    financeiro['cash flow out'].iat[0] = capex
+
+    # cash flows
+    financeiro['cash flow'] = financeiro['cash flow in'] - financeiro['cash flow out']
+    financeiro['cash flow acumulado'] = financeiro['cash flow'].cumsum()
+
+    # VAL
+    val = _val(financeiro, taxa_actualizacao)
+
+    # TIR
+    tir = _tir(financeiro, 10, tempo_vida)
+
+    # Tempo retorno
+    tr = _tempo_retorno(financeiro, tempo_vida)
+
+    # LCOE
+    lcoe = 0
+    if (indicadores_autoconsumo is not None):
+        lcoe = _lcoe(tempo_vida, capex, opex, taxa_actualizacao, indicadores_autoconsumo.capacidade_instalada, indicadores_autoconsumo.horas_equivalentes, taxa_degradacao_sistema)
+
+    return indicadores_financeiros(val, tir, tr, capex, opex, tempo_vida, lcoe), financeiro
+
+def analise_financeira_projecto_indicadores_autoconsumo_faturas(indicadores_autoconsumo
+                                                        , iac_a_considerar
+                                                        , capex
+                                                        , opex
+                                                        , taxa_actualizacao
+                                                        , ano_0
+                                                        , tempo_vida
+                                                        , taxa_degradacao_sistema
+                                                        , taxa_inflacao                
+                                                        , precos_energia
+                                                        , venda_rede):
+    """ Analise financeira de projecto a partir de indicador de autoconsumo (IAC) e dos valores de consumo e produção
+    anuais. A análise tem como objectivo saber como seria o projecto com um IAC teórico. 
+    Como a análise é feita sobre valores anuais igualmente distribuidos pelos mêses, apenas é possível utilizar o 
+    tarifário simples. Não é possível prever o consumo e produção em bihorario e trihorario
+
+    Args:
+    -----
+    indicadores_autoconsumo : indicadores_autoconsumo
+        Utilização da energia anual consumida e produzida para a análise financeira. O iac é ignorado.
+    iac_a_considerar: float
+        Indicador de autoconsumo a utilizar na análise para calcular energia produzida e autoconsumida.
+    capex : float
+        Custos iniciais em €
+    opex : float
+        Custos operação em €
+    taxa_actualizacao : float
+        Taxa de actualização em %
+    ano_0 : int
+        Ano 0 do projecto
+    tempo_vida : int
+        Tempo de vida do projecto
+    taxa_degradacao_sistema : float
+        Taxa degradação energia do sistema por ano em %
+    taxa_inflacao : float
+        Taxa de inflação em %
+    precos_energia :  ape.TarifarioEnergia
+        Preços de energia e venda à rede.
+    venda_rede : bool
+        True para considerar venda excedentes à rede, False para não considerar.
+    """
+    financeiro = pd.DataFrame({'ano' : range(ano_0, ano_0+tempo_vida+1, 1)})
+    financeiro['ano_projecto'] = range(tempo_vida+1)
+    # ano 0 operacao é o 1o ano financeiro, n ha perda de energia no ano 0
+    financeiro['ano_operacao'] = np.maximum(financeiro['ano_projecto']-1,0)
+
+    # conversao taxas
+    rd = taxa_degradacao_sistema / 100
+    infl = taxa_inflacao / 100
+
+    # lambdas tarifario simples
+    # custo sem upac é o consumo total e precos alterados de inflacao
+    func_custo_sem_upac_mensal_faturas = lambda cons_mensal, infl, ano_op, ano : \
+        cons_mensal.apply(lambda y : ape.calcula_fatura_tarifario_simples(y['consumo'], \
+                                                monthrange(int(ano), y.name.month)[1], \
+                                                precos_energia.custo_kwh_simples*(1+infl)**ano_op, \
+                                                precos_energia.pot_contratada, \
+                                                precos_energia.pot_contratada_custo_dia*(1+infl)**ano_op, \
+                                                precos_energia.pot_contratada_termo_fixo_redes_custo_dia*(1+infl)**ano_op)[0], axis=1)
+    # custo com upac é a producao alterada pela degradacao e precos alterados pela inflacao
+    func_custo_com_upac_mensal_faturas = lambda cons_mensal, prod_mensal, rd, infl, ano_op, ano : \
+        (cons_mensal - prod_mensal*(1-rd*np.maximum(ano_op-0.5,0))).apply(lambda y : \
+            ape.calcula_fatura_tarifario_simples(y['consumo'], \
+                                                monthrange(int(ano), y.name.month)[1], \
+                                                precos_energia.custo_kwh_simples*(1+infl)**ano_op, \
+                                                precos_energia.pot_contratada, \
+                                                precos_energia.pot_contratada_custo_dia*(1+infl)**ano_op, \
+                                                precos_energia.pot_contratada_termo_fixo_redes_custo_dia*(1+infl)**ano_op)[0], axis=1)
+    
+
+    # consumo e autoconsumo no ano0 em data frame
+    datas = pd.date_range('{}-01-01'.format(ano_0),'{}-01-01'.format(ano_0+1) , freq='1M')-pd.offsets.MonthBegin(1)
+    consumo_mensal_sem_upac_val = indicadores_autoconsumo.consumo_total / 12
+    consumo_mensal_sem_upac = pd.DataFrame({'consumo':[consumo_mensal_sem_upac_val]*12}, index=datas)
+    producao_mensal_val = indicadores_autoconsumo.energia_autoproduzida*(iac_a_considerar/100)/12
+    producao_mensal = pd.DataFrame({'consumo':[producao_mensal_val]*12}, index=datas)
+
+    # calculo poupanca energia
+    financeiro['custo_anual_sem_upac'] = financeiro.apply(lambda x : func_custo_sem_upac_mensal_faturas(consumo_mensal_sem_upac, infl, x['ano_operacao'], x['ano']).sum(), axis=1)
+    financeiro['custo_anual_com_upac'] = financeiro.apply(lambda x : func_custo_com_upac_mensal_faturas(consumo_mensal_sem_upac, producao_mensal, rd, infl, x['ano_operacao'], x['ano']).sum(), axis=1) 
+    financeiro['cash flow in'] = financeiro['custo_anual_sem_upac'] - financeiro['custo_anual_com_upac']
+    financeiro['cash flow in'].iat[0] = 0  # ano 0 não ha entrada de dinheiro
+
+    # se venda rede
+    if (venda_rede):
+        energia_venda_rede = indicadores_autoconsumo.energia_autoproduzida*(1-rd*np.maximum(financeiro['ano_operacao']-0.5,0)) * ( 1.0 - iac_a_considerar / 100.0)
+        financeiro['cash venda rede'] = energia_venda_rede * precos_energia.preco_venda_kwh * (1+infl)**financeiro['ano_operacao']
+        financeiro['cash venda rede'].iloc[0] = 0 # ano 0 não ha entrada dinheiro
         financeiro['cash flow in'] = financeiro['cash flow in'] + financeiro['cash venda rede']
 
     # saida
@@ -193,83 +412,6 @@ def analise_financeira_projecto(energia
 
     return indicadores_financeiros(val, tir, tr, capex, opex, tempo_vida, lcoe), financeiro
 
-def analise_financeira_projecto_indicadores_autoconsumo(indicadores_autoconsumo
-                                                        , iac_a_considerar
-                                                        , capex
-                                                        , opex
-                                                        , taxa_actualizacao
-                                                        , ano_0
-                                                        , tempo_vida
-                                                        , taxa_degradacao_sistema
-                                                        , taxa_inflacao                
-                                                        , custo_kwh_tarifario_simples
-                                                        , preco_kwh_venda_rede = None):
-    """ Analise financeira de projecto a partir de indicador de autoconsumo (IAC), não utiliza series temporais de consumo e produção, 
-    está limitado a utilização de tarifário simples.
-
-    Args:
-    -----
-    indicadores_autoconsumo : indicadores_autoconsumo
-        Utilização da energia anual consumida e produzida para a análise financeira. O iac é ignorado.
-    iac_a_considerar: float
-        Indicador de autoconsumo a utilizar na análise para calcular energia produzida e autoconsumida.
-    capex : float
-        Custos iniciais em €
-    opex : float
-        Custos operação em €
-    taxa_actualizacao : float
-        Taxa de actualização em %
-    ano_0 : int
-        Ano 0 do projecto
-    tempo_vida : int
-        Tempo de vida do projecto
-    taxa_degradacao_sistema : float
-        Taxa degradação energia do sistema por ano em %
-    taxa_inflacao : float
-        Taxa de inflação em %
-    custo_kwh_tarifario_simples : float
-        Custo €/kWh no tarifário simples
-    preco_kwh_venda_rede : float, default : None
-        Preço €/kWh de venda à rede
-    """
-    financeiro = pd.DataFrame({'ano' : range(ano_0, ano_0+tempo_vida+1, 1)})
-    financeiro['ano_projecto'] = range(tempo_vida+1)
-
-    # conversao taxas
-    rd = taxa_degradacao_sistema / 100
-    infl = taxa_inflacao / 100
-    # ano 0 operacao é o 1o ano financeiro, n ha perda de energia no ano 0
-    financeiro['ano_operacao'] = np.maximum(financeiro['ano_projecto']-1,0)
-    energia_autoconsumo = indicadores_autoconsumo.energia_autoproduzida*(1-rd*np.maximum(financeiro['ano_operacao']-0.5,0)) * iac_a_considerar / 100.0
-    financeiro['cash flow in'] = energia_autoconsumo * custo_kwh_tarifario_simples * (1+infl)**financeiro['ano_operacao']
-    financeiro['cash flow in'].iloc[0] = 0
-    if (preco_kwh_venda_rede is not None):
-        energia_venda_rede = indicadores_autoconsumo.energia_autoproduzida*(1-rd*np.maximum(financeiro['ano_operacao']-0.5,0)) * ( 1.0 - iac_a_considerar / 100.0)
-        financeiro['cash venda rede'] = energia_venda_rede * preco_kwh_venda_rede * (1+infl)**financeiro['ano_operacao']
-        financeiro['cash venda rede'].iloc[0] = 0 # ano 0 não ha entrada dinheiro
-        financeiro['cash flow in'] = financeiro['cash flow in'] + financeiro['cash venda rede']
-
-    # saida
-    financeiro['cash flow out'] = [opex for i in range(tempo_vida+1)]
-    financeiro['cash flow out'].iloc[0] = capex
-
-    # cash flows
-    financeiro['cash flow'] = financeiro['cash flow in'] - financeiro['cash flow out']
-    financeiro['cash flow acumulado'] = financeiro['cash flow'].cumsum()
-
-    # VAL
-    val = _val(financeiro, taxa_actualizacao)
-
-    # TIR
-    tir = _tir(financeiro, 10, tempo_vida)
-
-    # Tempo retorno
-    tr = _tempo_retorno(financeiro, tempo_vida)
-
-    # LCOE
-    lcoe = _lcoe(tempo_vida, capex, opex, taxa_actualizacao, indicadores_autoconsumo.capacidade_instalada, indicadores_autoconsumo.horas_equivalentes, 0.0)
-
-    return indicadores_financeiros(val, tir, tr, capex, opex, tempo_vida, lcoe), financeiro
 
 def _val(cash_flows, taxa_actualizacao):
     """ Valor actulizado liquido pelo método dos fluxo de caixa descontados.
