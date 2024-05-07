@@ -176,7 +176,7 @@ def leitura_consumo_faturas(ficheiro, ano):
     
     return consumos
 
-def leitura_ficheiros_mensais_medicao_eredes(pasta, ano):
+def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de Consumo kW"):
     """ Leitura de ficheiros excel mensais de uma pasta no formato <mes>_<ano>.xlsx com os dados
     medidos de consumo obtidos do balcao digita e-redes.
 

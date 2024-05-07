@@ -1,4 +1,5 @@
 from IPython.display import HTML, display
+from tabulate import tabulate
 
 class indicadores_autoconsumo:
     def __init__(self, iac, ias, ier, capacidade_instalada, energia_autoproduzida, energia_autoconsumida, energia_rede, consumo_total, armazenamento=False, horas_carga_min=0, horas_carga_max=0, num_ciclos_bateria=0):
@@ -127,3 +128,29 @@ class indicadores_autoconsumo:
             + '<tr><td>Ciclos da bateria</td><td>{}</td><td></td></tr>' .format(self._n_ciclos_bat)
         tabela += '</table>'
         display(HTML(tabela))
+
+    def print_markdown(self):
+        """ print as markdown table
+        """
+        tabela = [
+            ['Potencia Instalada [kW]', '{:.2f}'.format(self._capacidade_instalada)],
+            ['Energia Autoproduzida [kWh]', '{:.1f}'.format(self._energia_autoproduzida)],
+            ['Energia Autoconsumida [kWh]', '{:.1f}'.format(self._energia_autoconsumida)],
+            ['Energia consumida rede [kWh]', '{:.1f}'.format(self._energia_rede)],
+            ['Energia consumida [kWh]', '{:.1f}'.format(self._consumo_total)],      
+            ['Numero de horas equivalentes [h/ano]', '{:.1f}'.format(self.horas_equivalentes)],
+            ['IAS: Contributo PV [%]', '{:.1f}'.format(self._ias)],
+            ['IAC: Indice Auto consumo [%]', '{:.1f}'.format(self._iac)],
+            ['IER: Producao PV desperdicada [%]', '{:.1f}'.format(self._ier)]
+        ]
+        print(tabulate(tabela, tablefmt="github"))
+
+        if (self._com_armazenamento):
+            bateria = [
+                ['Bateria:','',''],
+                ['Em carga minima','{:.1f} hr'.format(self._horas_carga_min),'{:.2f} %'.format(self.perc_horas_carga_min)],
+                ['Em carga máxima','{:.1f} hr'.format(self._horas_carga_max),'{:.2f} %'.format(self.perc_horas_carga_max)],
+                ['Ciclos da bateria','{}'.format(self._n_ciclos_bat)]
+            ]
+            print(tabulate(bateria, tablefmt="github"))
+        
