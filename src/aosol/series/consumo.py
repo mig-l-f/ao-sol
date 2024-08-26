@@ -26,8 +26,9 @@ def leitura_perfis_eredes(ficheiro, perfil):
     """
     perfis_eredes = pd.read_csv(ficheiro, sep=';')
 
-    # Converter para floats
+    # Converter para floats, ficheiros com/sem \t, 1a linha cobre os com tab, 2a os sem tab
     perfis_eredes = perfis_eredes.replace("\t0,","0.", regex=True)
+    perfis_eredes = perfis_eredes.replace("0,","0.", regex=True)
     perfis_eredes['BTN A'] = perfis_eredes['BTN A'].astype(float)
     perfis_eredes['BTN B'] = perfis_eredes['BTN B'].astype(float)
     perfis_eredes['BTN C'] = perfis_eredes['BTN C'].astype(float)
@@ -176,7 +177,8 @@ def leitura_consumo_faturas(ficheiro, ano):
     
     return consumos
 
-def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de Consumo kW"):
+def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de Consumo kW", col_producao = "Dados de Producao kW", 
+                                             resample_horario=True, worksheet="Leituras"):
     """ Leitura de ficheiros excel mensais de uma pasta no formato <mes>_<ano>.xlsx com os dados
     medidos de consumo obtidos do balcao digita e-redes.
 
@@ -186,17 +188,25 @@ def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de C
         Caminho para a pasta onde estao os ficheiros
     ano: int
         Ano para o qual ler os ficheiros
+    col_consumo : str, default: "Dados de Consumo kW"
+        Nome da coluna com dados de consumo. Tem de existir no ficheiro.
+    col_producao : str, default: "Dados de Producao kW"
+        Nome da coluna com dados de produção. Pode não existir.
+    resample_horario : bool, default: True
+        Se queremos fazer resample dos dados para horario depois da conversão para energia. Utilizada soma. Defaul
+    worksheet: str
+        Nome da folha excel a ler, tem de ser o mesmo em todos os ficheiros
 
     Returns:
     df: pandas.DataFrame
         Dataframe com coluna 'consumo' com dados em kwh e 'producao' em kwh se estiver disponivel
     """
-    col_consumo = "Dados de Consumo kW"
-    col_producao = "Dados de Producao kW"
+    #col_consumo = "Dados de Consumo kW"
+    #col_producao = "Dados de Producao kW"
     list_of_files = sorted( glob.iglob(os.path.join(pasta, '*{}*'.format(ano))))
     li = []
     for fich in list_of_files:
-        df = pd.read_excel(fich, "Leituras", skiprows=8)
+        df = pd.read_excel(fich, worksheet, skiprows=8)
         li.append(df)
 
     df = pd.concat(li, axis=0, ignore_index=True)
@@ -213,8 +223,9 @@ def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de C
     # converter para kwh
     df['consumo'] = df['consumo']*15/60
 
-    # resample para horario
-    df = df.resample('H').sum()
+    if (resample_horario):
+        # resample para horario
+        df = df.resample('H').sum()
     return df
 
     
