@@ -35,7 +35,7 @@ def leitura_perfis_eredes(ficheiro, perfil):
     perfis_eredes['IP'] = perfis_eredes['IP'].astype(float)
 
     # Data e hora
-    perfis_eredes['Data'] = perfis_eredes['Data'].str.replace("\.\/", "/")
+    perfis_eredes['Data'] = perfis_eredes['Data'].str.replace("\.\/", "/", regex=True)
     # Converter data e hora as 24:00 para data + 1 dia e hora 00:00
     perfis_eredes['Timestamp'] = perfis_eredes[['Data', 'Hora']].apply(converter_timestamp_hora_24_para_hora_00, axis=1)
     perfis_eredes['Timestamp'] = pd.to_datetime(perfis_eredes['Timestamp'], format="%d/%b/%Y %H:%M")
@@ -67,7 +67,7 @@ def converter_timestamp_hora_24_para_hora_00(x):
 
     return '{} {}'.format(data.strftime('%d/%b/%Y'), hora_str)
 
-def ajustar_perfil_eredes_a_consumo_anual(perfis_eredes, consumo_anual_kwh, col):
+def ajustar_perfil_eredes_a_consumo_anual(perfis_eredes, consumo_anual_kwh, col, nome_col_consumo='Estimativa Consumo'):
     """ Ajustar o perfil e-redes a um valor de consumo anual.
 
     ..math:`Perfil_{Ajustado} = \\frac{Perfil_{E-Redes}*Consumo_{Anual}}{1000}`
@@ -80,18 +80,20 @@ def ajustar_perfil_eredes_a_consumo_anual(perfis_eredes, consumo_anual_kwh, col)
         Consumo anual em kwh
     col: str
         Nome coluna do perfil
+    nome_col_consumo: str, default: 'Estimativa Consumo'
+        Nome coluna com consumo na resultado. Por defeiro é 'Estimativa Consumo'.
 
     Returns:
     -------
     perfil_consumo: pandas.DataFrame
-        Dataframe com perfil horario ajustado na coluna 'Estimativa Consumo'
+        Dataframe com perfil horario ajustado na coluna indicada.
     """
     perfil_consumo = (perfis_eredes[col] * consumo_anual_kwh) / 1000
     #resample hourly
     perfil_consumo = perfil_consumo.resample('H').sum()
-    return perfil_consumo.to_frame('Estimativa Consumo')
+    return perfil_consumo.to_frame(nome_col_consumo)
 
-def ajustar_perfil_eredes_a_consumo_mensal(perfis_eredes, col_perfis, consumo_mensal, col_consumo):
+def ajustar_perfil_eredes_a_consumo_mensal(perfis_eredes, col_perfis, consumo_mensal, col_consumo, nome_col_consumo='Estimativa Consumo'):
     """ Ajustar o perfil e-redes a um valor de consumo mensal
     
     ..math:`Perfil_{Ajustado} = \\frac{Perfil_{E-Redes}^{Mes} * Consumo_{Mes}}{\\sum Perfil_{E-Redes}^{Mes}}`
@@ -106,11 +108,13 @@ def ajustar_perfil_eredes_a_consumo_mensal(perfis_eredes, col_perfis, consumo_me
         Dataframe com indice mes e consumo em kwh respectivo para o ano em analise
     col_consumo: str
         Nome columa do consumo_mensal a utilizar
+    nome_col_consumo: str, default: 'Estimativa Consumo'
+        Nome coluna com consumo na resultado. Por defeiro é 'Estimativa Consumo'.        
 
     Returns:
     -------
     perfil: pandas.DataFrame
-        Dataframe com perfil horario ajustado na coluna 'Estimativa Consumo'
+        Dataframe com perfil horario ajustado na coluna indicada.
     """
     # converter para horario
     perfil = perfis_eredes[col_perfis].resample('H').sum().to_frame(col_perfis)
@@ -126,7 +130,7 @@ def ajustar_perfil_eredes_a_consumo_mensal(perfis_eredes, col_perfis, consumo_me
     perfil['mes'] = pd.cut(perfil.index.month, soma_mensal.index.union([13]), labels=soma_mensal.index, right=False)
     perfil['mes'] = perfil['mes'].astype(int)
 
-    perfil['Estimativa Consumo'] = perfil[col_perfis] * perfil['mes'].map(consumo_mensal[col_consumo]) / perfil['mes'].map(soma_mensal['soma mensal'])
+    perfil[nome_col_consumo] = perfil[col_perfis] * perfil['mes'].map(consumo_mensal[col_consumo]) / perfil['mes'].map(soma_mensal['soma mensal'])
     perfil = perfil.drop(['mes'], axis=1, errors='ignore')
     return perfil
 
