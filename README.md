@@ -11,6 +11,12 @@ Biblioteca com várias funções para:
 - analise da performance da bateria: numero de ciclos, tempo à capacidade máxima e mínima.
 - analise financeira do projecto para o tempo de vida: VAL, TIR, tempo de retorno, LCOE.
 
+## Como começar:
+
+Ver documentação de como instalar [aqui](./docs/Instalacao.md)
+
+Ver os exemplos jupyter notebook na pasta ``templates/``.
+
 ## Fontes:
 
 <a id="1">[1]</a> 
@@ -31,4 +37,7 @@ UNOPAR Cient. Exatas Tecnol., Londrina, v. 11, n. 1, p. 59-63
 SJ Andrews, B Smith, MG Deceglie, KA Horowitz, and TJ Silverman. 2021
 “NREL Comparative PV LCOE Calculator.” 
 Version 2.0.0
+
+<a id="5">[5]</a>
+Jensen, A., Anderson, K., Holmgren, W., Mikofski, M., Hansen, C., Boeman, L., Loonen, R. “pvlib iotools — Open-source Python functions for seamless access to solar irradiance data.” Solar Energy, 266, 112092, (2023). DOI: 10.1016/j.solener.2023.112092.
 
