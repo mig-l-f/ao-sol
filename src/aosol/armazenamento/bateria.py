@@ -23,6 +23,11 @@ class bateria:
         self.num_ciclos = 0 # ciclos de carregamento da bateria
         self._acumulado_carregamento = 0.0 # acumulado carregamento para contagem de ciclos
 
+    def get_capacidade_bateria(self):
+        """ Capacidade da bateria em kWh
+        """
+        return self.capacidade
+
     def get_soc(self):
         """ Obter o estado de carga da bateria (%)
 

@@ -2,7 +2,7 @@ from IPython.display import HTML, display
 from tabulate import tabulate
 
 class indicadores_autoconsumo:
-    def __init__(self, iac, ias, ier, capacidade_instalada, energia_autoproduzida, energia_autoconsumida, energia_rede, consumo_total, armazenamento=False, horas_carga_min=0, horas_carga_max=0, num_ciclos_bateria=0):
+    def __init__(self, iac, ias, ier, capacidade_instalada, energia_autoproduzida, energia_autoconsumida, energia_rede, consumo_total, armazenamento=False, horas_carga_min=0, horas_carga_max=0, num_ciclos_bateria=0, capacidade_bateria=0):
         self._iac = iac
         self._ias = ias
         self._ier = ier
@@ -15,6 +15,7 @@ class indicadores_autoconsumo:
         self._horas_carga_min = horas_carga_min
         self._horas_carga_max = horas_carga_max
         self._n_ciclos_bat = num_ciclos_bateria
+        self._capacidade_bateria = capacidade_bateria
 
     @property
     def iac(self):
@@ -71,6 +72,12 @@ class indicadores_autoconsumo:
         return self._consumo_total
 
     @property
+    def com_armazenamento(self):
+        """ Se contem indicadores de armazenamento ou não
+        """
+        return self._com_armazenamento
+
+    @property
     def num_horas_carga_min(self):
         """ Numero de horas da bateria à carga minima (SOC min)
         """
@@ -106,6 +113,12 @@ class indicadores_autoconsumo:
         """
         return self._energia_autoproduzida / self._capacidade_instalada
 
+    @property
+    def capacidade_bateria(self):
+        """ Capacidade da bateria em kWh
+        """
+        return self._capacidade_bateria
+
     def print_html(self):
         """ print as a html table
         """
@@ -123,6 +136,7 @@ class indicadores_autoconsumo:
         +'<tr><td>IER: Producao PV desperdicada [%]</td><td>{:.1f}</td></tr>'.format(self._ier) 
         if (self._com_armazenamento):
             tabela += '<tr><td>Bateria:</td><td></td><td></td></tr>' \
+            + '<tr><td>Capacidade bateria [kWh]</td><td>{:.2f}</td><td></td></tr>'.format(self._capacidade_bateria) \
             + '<tr><td>Em carga minima</td><td>{:.1f} hr</td><td>{:.2f} %</td></tr>'.format(self._horas_carga_min, self.perc_horas_carga_min) \
             + '<tr><td>Em carga máxima</td><td>{:.1f} hr</td><td>{:.2f} %</td></tr>'.format(self._horas_carga_max, self.perc_horas_carga_max) \
             + '<tr><td>Ciclos da bateria</td><td>{}</td><td></td></tr>' .format(self._n_ciclos_bat)
@@ -148,6 +162,7 @@ class indicadores_autoconsumo:
         if (self._com_armazenamento):
             bateria = [
                 ['Bateria:','',''],
+                ['Capacidade bateria [kWh]', '{:.2f}'.format(self._capacidade_bateria), ''],
                 ['Em carga minima','{:.1f} hr'.format(self._horas_carga_min),'{:.2f} %'.format(self.perc_horas_carga_min)],
                 ['Em carga máxima','{:.1f} hr'.format(self._horas_carga_max),'{:.2f} %'.format(self.perc_horas_carga_max)],
                 ['Ciclos da bateria','{}'.format(self._n_ciclos_bat)]
