@@ -69,7 +69,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df['stamp'] = pd.to_datetime(df['stamp'])
         df = df.set_index('stamp')
         precos_energia = ape.TarifarioEnergia(custo_tri_kwh_ponta=0.2336, custo_tri_kwh_cheia=0.1710, custo_tri_kwh_vazio=0.1073, pot_contratada=ape.PotenciaContratada.kVA_3_45, pot_contratada_custo_dia=0.0904 + 0.0758, pot_contratada_termo_fixo_redes_custo_dia=0.0904)
-        mensal = af.analise_poupanca_anual_fatura(df, ape.Tarifario.Trihorario, precos_energia, False, 2022)
+        mensal = af.analise_poupanca_anual_fatura(df, ape.Tarifario.Trihorario, precos_energia, False, ano_tarifario=2022)
         self.assertAlmostEqual(44.85, mensal.loc['Janeiro','fatura sem upac'], 2)
 
     def test_poupanca_anual_venda_rede(self):
@@ -223,3 +223,52 @@ class TestAnaliseFinanceira(unittest.TestCase):
 
         fin, _ = af.analise_financeira_projecto_indicadores_autoconsumo_faturas(indicadores, 60.0, 200.0, 10.0, taxa_actualizacao, 2022, 5, 0, inflacao, preco_energia, True)
         self.assertAlmostEqual(116.225, fin.val, 3)
+
+    def test_poupanca_anual_fatura_incorrecto_numero_colunas_sem_venda_rede(self):
+        df = pd.DataFrame({'stamp':[
+            '2022-01-01 00:00','2022-02-01 00:00','2022-03-01 00:00','2022-04-01 00:00',
+            '2022-05-01 00:00','2022-06-01 00:00','2022-07-01 00:00','2022-08-01 00:00',
+            '2022-09-01 00:00','2022-10-01 00:00','2022-11-01 00:00','2022-12-01 00:00',
+        ],
+        'consumo' :     [ 160, 160, 160, 160, 160, 160, 160, 160, 160, 160, 160, 160], 
+        'consumo_rede' : [ 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120]})
+        df['stamp'] = pd.to_datetime(df['stamp'])
+        df = df.set_index('stamp')
+        precos_energia = ape.TarifarioEnergia(custo_kwh_simples=0.1486, pot_contratada=ape.PotenciaContratada.kVA_3_45, pot_contratada_custo_dia=0.1480 + 0.018, pot_contratada_termo_fixo_redes_custo_dia=0.1480)
+        
+        # Deve falhar com 1 ou 4 nomes
+        self.assertRaises(ValueError, af.analise_poupanca_anual_fatura, df, ape.Tarifario.Simples, precos_energia, False, ['col1'])
+        self.assertRaises(ValueError, af.analise_poupanca_anual_fatura, df, ape.Tarifario.Simples, precos_energia, False, ['col1', 'col2', 'col3','col4'])
+
+        # Nao deve falhar com 2 ou 3 nomes
+        try:
+            af.analise_poupanca_anual_fatura(df, ape.Tarifario.Simples, precos_energia, False, ['consumo', 'consumo_rede'])
+        except ValueError:
+            self.fail('Nao devia falhar sem venda a rede e 2 nomes')
+        
+        try:
+            af.analise_poupanca_anual_fatura(df, ape.Tarifario.Simples, precos_energia, False, ['consumo', 'consumo_rede', 'col3'])
+        except ValueError:
+            self.fail('Nao devia falhar sem venda a rede e 3 nomes')
+
+    def test_poupanca_anual_fatura_incorrecto_numero_colunas_com_venda_rede(self):
+        df = pd.DataFrame({'stamp':[
+            '2022-01-01 00:00','2022-02-01 00:00','2022-03-01 00:00','2022-04-01 00:00',
+            '2022-05-01 00:00','2022-06-01 00:00','2022-07-01 00:00','2022-08-01 00:00',
+            '2022-09-01 00:00','2022-10-01 00:00','2022-11-01 00:00','2022-12-01 00:00',
+        ],
+        'consumo' :     [ 160, 160, 160, 160, 160, 160, 160, 160, 160, 160, 160, 160], 
+        'consumo_rede' : [ 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120],
+        'injeccao_rede': [ 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0]})
+        df['stamp'] = pd.to_datetime(df['stamp'])
+        df = df.set_index('stamp')
+        precos_energia = ape.TarifarioEnergia(preco_venda_kwh=1.0, custo_kwh_simples=0.1486, pot_contratada=ape.PotenciaContratada.kVA_3_45, pot_contratada_custo_dia=0.1480 + 0.018, pot_contratada_termo_fixo_redes_custo_dia=0.1480)
+
+        # deve falhar com 2
+        self.assertRaises(ValueError, af.analise_poupanca_anual_fatura, df, ape.Tarifario.Simples, precos_energia, True, ['col1', 'col2'])
+
+        # Nao deve falhar com 3 nomes
+        try:
+            af.analise_poupanca_anual_fatura(df, ape.Tarifario.Simples, precos_energia, True, ['consumo', 'consumo_rede', 'injeccao_rede'])
+        except ValueError:
+            self.fail('Nao devia falhar com venda a rede e 3 nomes')
