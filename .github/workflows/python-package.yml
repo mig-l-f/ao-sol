@@ -27,7 +27,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Environment setup
       run: |
-        brew install hdf5@1.14.2 netcdf@4.9.2
+        brew install hdf5@1.14 netcdf
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
