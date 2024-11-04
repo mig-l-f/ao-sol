@@ -1,6 +1,6 @@
 # Ao-Sol: projectos solares de auto-consumo
 
-![build workflow](https://github.com/mig-l-f/ao-sol/actions/workflows/python-package.yml?query=branch:master)
+[![Build](https://github.com/mig-l-f/ao-sol/actions/workflows/python-package.yml/badge.svg)](https://github.com/mig-l-f/ao-sol/actions/workflows/python-package.yml)
 
 ## Descrição
 
