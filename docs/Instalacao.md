@@ -6,6 +6,15 @@
 
 As instruções seguintes consideram uma distribuição Anaconda/[Miniconda](https://docs.anaconda.com/miniconda/).
 
+As bibliotecas netcdf e hdf5 é necessária para as funcionalidade NEWA (new european wind atlas), sendo que hdf5 é um pre-requisito da netcdf. À data
+das instruções foram testadas as seguintes versões no sistema MacOS:
+* HDF5@1.14
+* Netcdf@4.9.2
+
+Caso não sejam necessárias as funcionalidades NEWA ou não seja possível instalar estas bibliotecas recomendo que no ficheiro `requirements.txt` se comente a linha com netcdf.
+
+![](imgs/comentar%20netcdf.png)
+
 ## Clonar o reposiório
 
 Através da linha de comandos ou IDE VSCode por exemplo, clonar o repositório para uma localização no disco.
