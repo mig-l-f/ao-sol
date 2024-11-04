@@ -18,7 +18,13 @@ class TestConsumo(unittest.TestCase):
         self.assertEqual('15/Abr/2021 16:30', t['Timestamp'].iloc[2])
 
     def test_leitura_perfis_eredes(self):
-        fich = os.path.join(os.getcwd(),"aosol_project", "src", "testes", "teste_perfis_eredes.csv")
+        cwd = os.getcwd()
+        print(f'\nCWD: {cwd}')
+        indir = os.listdir(cwd)
+        for d in indir:
+            print(d)
+
+        fich = os.path.join(os.getcwd(),"aosol_project", "src", "testes", "teste_perfis_eredes.csv")                
         perfil = consumo.leitura_perfis_eredes(fich, 'BTN C')
         self.assertEqual(0.0369790, perfil['BTN C'].values[0])
         self.assertEqual(0.0367390, perfil['BTN C'].values[1])
@@ -40,6 +46,11 @@ class TestConsumo(unittest.TestCase):
         self.assertEqual(cons['consumo'].sum(), ajustado['Estimativa Consumo'].sum())
 
     def test_leitura_faturas(self):
+        cwd = os.getcwd()
+        print(f'\nCWD: {cwd}')
+        indir = os.listdir(cwd)
+        for d in indir:
+            print(d)        
         fich = os.path.join(os.getcwd(), "aosol_project", "src", "testes", "teste_leitura_faturas.tsv")
         leituras = consumo.leitura_consumo_faturas(fich, 2021)
 
