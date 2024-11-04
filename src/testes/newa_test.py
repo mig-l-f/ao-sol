@@ -10,7 +10,8 @@ import tempfile
 class TestNewa(unittest.TestCase):
     
     def test_parse_newa_file_to_dataframe(self):
-        arquivo = os.path.join(os.getcwd(),"aosol_project", "src", "testes", "mesoscale-ts.nc")
+        #arquivo = os.path.join(os.getcwd(),"aosol_project", "src", "testes", "mesoscale-ts.nc")
+        arquivo = os.path.join(os.path.dirname(__file__), "mesoscale-ts.nc")
 
         df, lon, lat = newa._parse_newa_nc_file(arquivo)
 
