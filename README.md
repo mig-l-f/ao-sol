@@ -1,5 +1,7 @@
 # Ao-Sol: projectos solares de auto-consumo
 
+![build workflow](https://github.com/mig-l-f/ao-sol/actions/workflows/python-package.yml/badge.svg)
+
 ## Descrição
 
 Projecto é composto por uma biblioteca em python e jupyter notebooks com exemplos de utilização para análise de UPAC com e sem armazenamento.
