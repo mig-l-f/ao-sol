@@ -25,8 +25,7 @@ import requests
 import pandas as pd
 import warnings
 
-#URL = 'https://re.jrc.ec.europa.eu/api/'
-URL = 'https://re.jrc.ec.europa.eu/api/v5_2/'
+URL = 'https://re.jrc.ec.europa.eu/api/v5_3/'
 
 # Dictionary mapping PVGIS names to pvlib names
 PVGIS_VARIABLE_MAP = {
