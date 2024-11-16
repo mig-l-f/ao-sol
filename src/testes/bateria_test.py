@@ -1,5 +1,7 @@
 import unittest
-from ..aosol.armazenamento import bateria
+import sys
+sys.path.append('..')
+from aosol.armazenamento import bateria
 
 class TestBateria(unittest.TestCase):
     def test_criar_bateria(self):

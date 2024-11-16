@@ -1,3 +1,4 @@
 docs-sphinx/
 __pycache__
 *.numbers
+docs/sphinx/build

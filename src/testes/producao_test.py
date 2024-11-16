@@ -1,6 +1,8 @@
 from datetime import datetime
 import unittest
-from ..aosol.series import producao, pvgis
+import sys
+sys.path.append('..')
+from aosol.series import producao, pvgis
 import pandas as pd
 
 class TestProducao(unittest.TestCase):

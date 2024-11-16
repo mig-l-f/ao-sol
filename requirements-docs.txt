@@ -1,0 +1,7 @@
+sphinx
+myst-parser
+nbsphinx
+nbsphinx-link
+sphinx-gallery
+pandoc
+sphinx-autoapi

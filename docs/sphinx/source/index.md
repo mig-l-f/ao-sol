@@ -1,6 +1,9 @@
-# Ao-Sol: projectos solares de auto-consumo
+% ao-sol documentation master file, created by
+% sphinx-quickstart on Tue Nov 12 22:02:07 2024.
+% You can adapt this file completely to your liking, but it should at least
+% contain the root `toctree` directive.
 
-[![Build](https://github.com/mig-l-f/ao-sol/actions/workflows/python-package.yml/badge.svg)](https://github.com/mig-l-f/ao-sol/actions/workflows/python-package.yml)
+# Ao-Sol: projectos solares de auto-consumo
 
 ## Descrição
 
@@ -13,11 +16,11 @@ Biblioteca com várias funções para:
 - analise da performance da bateria: numero de ciclos, tempo à capacidade máxima e mínima.
 - analise financeira do projecto para o tempo de vida: VAL, TIR, tempo de retorno, LCOE.
 
-## Documentação
+## Como começar:
 
-Documentação da biblioteca e exemplos em [Documentação](https://ao-sol.readthedocs.io)
+Ver documentação de como instalar em {ref}`Instalação`
 
-A biblioteca foi desenvolvida e testada com python 3.8
+Ver os exemplos jupyter notebook em {ref}`Exemplos`
 
 ## Fontes:
 
@@ -43,3 +46,10 @@ Version 2.0.0
 <a id="5">[5]</a>
 Jensen, A., Anderson, K., Holmgren, W., Mikofski, M., Hansen, C., Boeman, L., Loonen, R. “pvlib iotools — Open-source Python functions for seamless access to solar irradiance data.” Solar Energy, 266, 112092, (2023). DOI: 10.1016/j.solener.2023.112092.
 
+```{toctree}
+:caption: 'Contents:'
+:maxdepth: 2
+
+instalacao/Instalacao
+exemplos/index
+```
