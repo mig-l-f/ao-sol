@@ -1,6 +1,8 @@
 from datetime import datetime
 import unittest
-from ..aosol.series import pvgis
+import sys
+sys.path.append('..')
+from aosol.series import pvgis
 import pandas as pd
 import netCDF4
 import os

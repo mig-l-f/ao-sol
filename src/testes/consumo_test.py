@@ -1,7 +1,9 @@
 import unittest
 import pandas as pd
 import os
-from ..aosol.series import consumo
+import sys
+sys.path.append('..')
+from aosol.series import consumo
 import locale
 locale.setlocale(locale.LC_TIME, "pt_PT") # processar datas em PT
 
