@@ -1,22 +1,18 @@
 """
-Copyright (c) 2013-2021, Sandia National Laboratories and pvlib python Development Team
-All rights reserved.
-
 Get, read, and parse data from `PVGIS <https://ec.europa.eu/jrc/en/pvgis>`_.
 
 For more information, see the following links:
-* `Non-interactive tools <https://joint-research-centre.ec.europa.eu/pvgis-photovoltaic-geographical-information-system/getting-started-pvgis/api-non-interactive-service_en>`_
-* `Interactive Tools <https://re.jrc.ec.europa.eu/pvg_tools/en/tools.html>`_
-* `Data downloads <https://ec.europa.eu/jrc/en/PVGIS/downloads/data>`_
-* `User manual docs <https://ec.europa.eu/jrc/en/PVGIS/docs/usermanual>`_
+
+- `Interactive Tools <https://re.jrc.ec.europa.eu/pvg_tools/en/tools.html>`_
+- `Data downloads <https://ec.europa.eu/jrc/en/PVGIS/downloads/data>`_
+- `User manual docs <https://ec.europa.eu/jrc/en/PVGIS/docs/usermanual>`_
 
 More detailed information about the API for TMY and hourly radiation are here:
-* `TMY <https://ec.europa.eu/jrc/en/PVGIS/tools/tmy>`_
-* `hourly radiation
-  <https://ec.europa.eu/jrc/en/PVGIS/tools/hourly-radiation>`_
-* `daily radiation <https://ec.europa.eu/jrc/en/PVGIS/tools/daily-radiation>`_
-* `monthly radiation
-  <https://ec.europa.eu/jrc/en/PVGIS/tools/monthly-radiation>`_
+
+- `TMY <https://ec.europa.eu/jrc/en/PVGIS/tools/tmy>`_
+- `hourly radiation <https://ec.europa.eu/jrc/en/PVGIS/tools/hourly-radiation>`_
+- `daily radiation <https://ec.europa.eu/jrc/en/PVGIS/tools/daily-radiation>`_
+- `monthly radiation <https://ec.europa.eu/jrc/en/PVGIS/tools/monthly-radiation>`_
 """
 import io
 import json

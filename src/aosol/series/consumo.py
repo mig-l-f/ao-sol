@@ -1,4 +1,4 @@
-""" Contem metodos para processar e tratar dados de consumo
+""" Contem metodos para processar e tratar dados de consumo.
 """
 import pandas as pd
 import numpy as np
@@ -12,17 +12,17 @@ locale.setlocale(locale.LC_TIME, "pt_PT") # processar datas em PT
 def leitura_perfis_eredes(ficheiro, perfil):
     """ Leitura de ficheiro com perfis e-redes.
 
-    Args:
-    -----
-    ficheiro: str
-        Caminho para o ficheiro
-    perfil: str
-        Coluna ou colunas do ficheiro a guardar. Tipicamente 'BTN C', 'BTN A', 'BTN B', 'IP'
+    Parameters
+    ----------
+    ficheiro : str
+        Caminho para o ficheiro.
+    perfil : str
+        Coluna ou colunas do ficheiro a guardar. Opções: 'BTN C', 'BTN A', 'BTN B', 'IP'.
 
-    Retuns:
-    ------
-    perfil: pandas.DataFrame
-        Dataframe com o perfil ou perfis escolhidos
+    Returns
+    -------
+    perfil : pandas.DataFrame
+        Dataframe com o perfil ou perfis escolhidos.
     """
     perfis_eredes = pd.read_csv(ficheiro, sep=';')
 
@@ -47,17 +47,17 @@ def leitura_perfis_eredes(ficheiro, perfil):
     return perfis_eredes[perfil].to_frame(perfil)
 
 def converter_timestamp_hora_24_para_hora_00(x):
-    """ Converte um time stamp com formato dd/mmm/yyyy 24:00 para dd+1/mmm/yyyy 00:00
+    """ Converte um time stamp com formato dd/mmm/yyyy 24:00 para dd+1/mmm/yyyy 00:00.
 
-    Args:
-    -----
-    x: pandas.DataFrame
-        Dataframe com coluna 'Data' 
+    Parameters
+    ----------
+    x : pandas.DataFrame
+        Dataframe com coluna 'Data'.
 
-    Returns:
-    --------
-    timestamp: str
-        timestamp convertido
+    Returns
+    -------
+    timestamp : str
+        timestamp convertido.
     """
     data = datetime.datetime.strptime(x['Data'], '%d/%b/%Y').date() # pd.to_datetime(x['Data'],'%d/%b/%Y')
     hora_str = x['Hora']
@@ -68,24 +68,24 @@ def converter_timestamp_hora_24_para_hora_00(x):
     return '{} {}'.format(data.strftime('%d/%b/%Y'), hora_str)
 
 def ajustar_perfil_eredes_a_consumo_anual(perfis_eredes, consumo_anual_kwh, col, nome_col_consumo='Estimativa Consumo'):
-    """ Ajustar o perfil e-redes a um valor de consumo anual.
+    r""" Ajustar o perfil e-redes a um valor de consumo anual.
 
-    ..math:`Perfil_{Ajustado} = \\frac{Perfil_{E-Redes}*Consumo_{Anual}}{1000}`
+    .. math:: `Perfil_{Ajustado} = \\frac{Perfil_{E-Redes}*Consumo_{Anual}}{1000}`
 
-    Args:
-    -----
-    perfis_eredes: pandas.DataFrame
+    Parameters
+    ----------
+    perfis_eredes : pandas.DataFrame
         Perfil e-redes 15 min
     consumo_anual_kwh : float
         Consumo anual em kwh
-    col: str
+    col : str
         Nome coluna do perfil
-    nome_col_consumo: str, default: 'Estimativa Consumo'
+    nome_col_consumo : str, default: 'Estimativa Consumo'
         Nome coluna com consumo na resultado. Por defeiro é 'Estimativa Consumo'.
 
-    Returns:
+    Returns
     -------
-    perfil_consumo: pandas.DataFrame
+    perfil_consumo : pandas.DataFrame
         Dataframe com perfil horario ajustado na coluna indicada.
     """
     perfil_consumo = (perfis_eredes[col] * consumo_anual_kwh) / 1000
@@ -94,24 +94,24 @@ def ajustar_perfil_eredes_a_consumo_anual(perfis_eredes, consumo_anual_kwh, col,
     return perfil_consumo.to_frame(nome_col_consumo)
 
 def ajustar_perfil_eredes_a_consumo_mensal(perfis_eredes, col_perfis, consumo_mensal, col_consumo, nome_col_consumo='Estimativa Consumo'):
-    """ Ajustar o perfil e-redes a um valor de consumo mensal
+    r""" Ajustar o perfil e-redes a um valor de consumo mensal.
     
-    ..math:`Perfil_{Ajustado} = \\frac{Perfil_{E-Redes}^{Mes} * Consumo_{Mes}}{\\sum Perfil_{E-Redes}^{Mes}}`
+    .. math:: `Perfil_{Ajustado} = \\frac{Perfil_{E-Redes}^{Mes} * Consumo_{Mes}}{\\sum Perfil_{E-Redes}^{Mes}}`
 
-    Args:
-    ----
-    perfis_eredes: pandas.DataFrame
+    Parameters
+    ----------
+    perfis_eredes : pandas.DataFrame
         Dataframe com perfil e-redes 15 min
-    col_perfis: str
+    col_perfis : str
         Nome coluna do perfil a utilizar
-    consumo_mensal: pandas.DataFrame
+    consumo_mensal : pandas.DataFrame
         Dataframe com indice mes e consumo em kwh respectivo para o ano em analise
-    col_consumo: str
+    col_consumo : str
         Nome columa do consumo_mensal a utilizar
-    nome_col_consumo: str, default: 'Estimativa Consumo'
+    nome_col_consumo : str, default: 'Estimativa Consumo'
         Nome coluna com consumo na resultado. Por defeiro é 'Estimativa Consumo'.        
 
-    Returns:
+    Returns
     -------
     perfil: pandas.DataFrame
         Dataframe com perfil horario ajustado na coluna indicada.
@@ -138,19 +138,19 @@ def leitura_consumo_faturas(ficheiro, ano):
     """ Leitura valores faturas e calcular consumo mensal.
 
     Ler ficheiro tsv com valores Vazio, Cheias e Ponta e calcular valor de consumo mensal. Interpolar valor de
-    consumo no ultimo dia do mes. Requer uma leitura no 1o dia do ano e uma no último ou após o mesmo
+    consumo no ultimo dia do mes. Requer uma leitura no 1o dia do ano e uma no último ou após o mesmo.
 
-    Args:
-    -----
-    ficheiro: str
-        Caminho para o ficheiro tsv com leituras
-    ano: int
-        Ano a processar
+    Parameters
+    ----------
+    ficheiro : str
+        Caminho para o ficheiro tsv com leituras.
+    ano : int
+        Ano a processar.
 
-    Returns:
-    --------
-    consumos: pandas.DataFrame
-        Dataframe com indice numero mes e coluna consumo com consumo nesse mes
+    Returns
+    -------
+    consumos : pandas.DataFrame
+        Dataframe com indice numero mes e coluna consumo com consumo nesse mes.
     """
     leituras = pd.read_csv(ficheiro, sep='\t')
     leituras['Data'] = pd.to_datetime(leituras['Data'], format='%d/%m/%Y')
@@ -186,11 +186,11 @@ def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de C
     """ Leitura de ficheiros excel mensais de uma pasta no formato <mes>_<ano>.xlsx com os dados
     medidos de consumo obtidos do balcao digita e-redes.
 
-    Args:
-    -----
-    pasta: str
+    Parameters
+    ----------
+    pasta : str
         Caminho para a pasta onde estao os ficheiros
-    ano: int
+    ano : int
         Ano para o qual ler os ficheiros
     col_consumo : str, default: "Dados de Consumo kW"
         Nome da coluna com dados de consumo. Tem de existir no ficheiro.
@@ -198,11 +198,12 @@ def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de C
         Nome da coluna com dados de produção. Pode não existir.
     resample_horario : bool, default: True
         Se queremos fazer resample dos dados para horario depois da conversão para energia. Utilizada soma. Defaul
-    worksheet: str
+    worksheet : str
         Nome da folha excel a ler, tem de ser o mesmo em todos os ficheiros
 
-    Returns:
-    df: pandas.DataFrame
+    Returns
+    -------
+    df : pandas.DataFrame
         Dataframe com coluna 'consumo' com dados em kwh e 'producao' em kwh se estiver disponivel
     """
     #col_consumo = "Dados de Consumo kW"

@@ -2,3 +2,5 @@ docs-sphinx/
 __pycache__
 *.numbers
 docs/sphinx/build
+autobuild.sh
+*/sphinx/source/autoapi
