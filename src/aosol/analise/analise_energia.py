@@ -38,15 +38,15 @@ def calcula_indicadores_autoconsumo(energia, capacidade_instalada, calcula_p90=F
 
     A partir de uma dataframe com as colunas para um sistema sem armazenamento, calcula
     os seguintes indicadores de autoconsumo calculados:
-        - iac : indice auto consumo [%]
-        - ias : indice auto suficiencia [%]
-        - ier : indice entrega a rede [%]
-        - energia_autoconsumida : total energia autoconsumida [kWh]
-        - energia_rede : total energia consumida da rede [kWh]
-        - consumo_total : total energia consumida [kWh]
+    - iac : indice auto consumo [%]
+    - ias : indice auto suficiencia [%]
+    - ier : indice entrega a rede [%]
+    - energia_autoconsumida : total energia autoconsumida [kWh]
+    - energia_rede : total energia consumida da rede [kWh]
+    - consumo_total : total energia consumida [kWh]
 
-    Args:
-    -----
+    Parameters
+    ----------
     energia : pandas.DataFrame
         Series temporais energia. Colunas necessarias: consumo, autoproducao, autoconsumo, consumo_rede
     capacidade_instalada : float
@@ -54,10 +54,12 @@ def calcula_indicadores_autoconsumo(energia, capacidade_instalada, calcula_p90=F
     calcula_p90: bool, default:False
         True para calcular os indicadores para P90, False para não calcular
 
-    Returns:
-    --------
-    (ind, ind_p90) : indicadores de autoconsumo
-        Indicadores de autoconsumo para P50 e se calculat_p90 é True para P90 tambem.
+    Returns
+    -------
+    ind : indicadores_autoconsumo
+        Indicadores de autoconsumo para P50.
+    ind_p90 : indicadores_autoconsumo
+        Indicadores de autoconsumo para P90 se calcular_p90 é True, caso contrário None.
     """
     # indice auto consumo
     iac = (energia["autoconsumo"].sum() / energia["autoproducao"].sum()) * 100.0
@@ -91,29 +93,31 @@ def calcula_indicadores_autoconsumo_com_armazenamento(energia_armaz, bat, capaci
 
     A partir de um dataframe com as colunas para um sistema de armazenamento, 
     calcula os indicadores de autoconsumo mais os correspondentes à bateria:
-        - horas_carga_min : numero de horas da bateria à carga minima (SOC min)
-        - perc_carga_min : percentagem do ano à carga miniam [%]
-        - horas_carga_max : numero de horas da bateria à carga máxima (SOC max)
-        - perc_carga_max : percenragem do ano à carga máxima [%]
-        - num_ciclos : numero de ciclos de carregamento da bateria em 1 ano
+    - horas_carga_min : numero de horas da bateria à carga minima (SOC min)
+    - perc_carga_min : percentagem do ano à carga miniam [%]
+    - horas_carga_max : numero de horas da bateria à carga máxima (SOC max)
+    - perc_carga_max : percenragem do ano à carga máxima [%]
+    - num_ciclos : numero de ciclos de carregamento da bateria em 1 ano
 
-    Args:
-    -----
+    Parameters
+    ----------
     energia_armaz : pd.Dataframe
-        dataframe de energia e armazenamento: Colunas necessarias: consumo, autoproducao, autoconsumo, consumo_rede, soc
-    bat: bateria
-        bateria para P50
+        Dataframe de energia e armazenamento: Colunas necessarias: consumo, autoproducao, autoconsumo, consumo_rede, soc
+    bat : bateria
+        Bateria para P50
     capacidade_instalada : float
-        capacidade instalada em kWp
+        Capacidade instalada.  [kWp]
     calcula_p90 : bool, default: False
-        Se calcula indicadores para P90
+        Se calcula indicadores para P90.
     bat_p90 : bateria
-        bateria para P90 necessário se calcula_p90 = True
+        Bateria para P90 necessário se calcula_p90 = True
 
-    Returns:
-    --------
-    (ind, ind_p90) : indicadores de autoconsumo
-        Indicadores de autoconsumo para P50 e se calculat_p90 é True para P90 tambem.
+    Returns
+    -------
+    ind : indicadores de autoconsumo
+        Indicadores de autoconsumo para P50.
+    ind_p90 : indicadores de autoconsumo, optional
+        Indicadors de autoconsumo para P90 se calcular_p90 é True, caso contrário none.
     """
     # indicadores sem armazenamento
     sem, sem_p90 = calcula_indicadores_autoconsumo(energia_armaz, capacidade_instalada, calcula_p90)
@@ -142,25 +146,26 @@ def analisa_upac_sem_armazenamento(energia):
 
     Algoritmo para autoconsumo sem armazenamento. Fonte: J Carvalho (2018) Armazenamento em Auto Consumo
     Dadas as series de:
-        - consumo : consumo total [kWh]
-        - autoproducao : producao total do sistema autoconsumo [kWh]
-        - autoproducao_p90 : produção P90 da UPAC [kWh] (opcional)
+    - consumo : consumo total [kWh]
+    - autoproducao : producao total do sistema autoconsumo [kWh]
+    - autoproducao_p90 : produção P90 da UPAC [kWh] (opcional)
     Calcula:
-        - autoconsumo: quantidade produzida que é efectivamente consumida [kWh]
-        - injeccao_rede: quantidade produzida que não é aproveitada [kWh]
-        - consumo_rede: quantidade consumida da rede [kWh]
-    se autoproducao_p90 existir, calcula tb
-        - autoconsumo_p90: quantidade produzida que é efectivamente consumida [kWh]
-        - injeccao_rede_p90: quantidade produzida que não é aproveitada [kWh]
-        - consumo_rede_90: quantidade consumida da rede [kWh]
+    - autoconsumo : quantidade produzida que é efectivamente consumida [kWh]
+    - injeccao_rede : quantidade produzida que não é aproveitada [kWh]
+    - consumo_rede : quantidade consumida da rede [kWh]
+    Se autoproducao_p90 existir, calcula tb
+    - autoconsumo_p90 : quantidade produzida que é efectivamente consumida [kWh]
+    - injeccao_rede_p90 : quantidade produzida que não é aproveitada [kWh]
+    - consumo_rede_90 : quantidade consumida da rede [kWh]
 
-    Args:
-    -----
+    Parameters
+    ----------
     energia : pd.Dataframe
         Dataframe com as series de consumo e autoproducao.
 
-    Returns:
-    --------
+    Returns
+    -------
+    pd.Dataframe
         A data frame original com as series adicionadas de autoconsumo, injeccao_rede e consumo_rede.
     """
     # Algoritmo:
@@ -218,30 +223,30 @@ def analisa_upac_com_armazenamento(energia, bateria, calcula_p90=False, bateria_
 
     Algoritmo para autoconsumo com armazenamento. Fonte: J Carvalho (2018) Armazenamento em Auto Consumo
     Dadas as series de:
-        - consumo : consumo total [kWh]
-        - autoproducao : producao total do sistema autoconsumo [kWh]
+    - consumo : consumo total [kWh]
+    - autoproducao : producao total do sistema autoconsumo [kWh]
     Calcula:
-        - autoconsumo : energia autoconsumida (PV + bateria)
-        - injeccao_rede : energia desperdicada
-        - consumo_rede : energia consumida da rede
-        - carga_bateria : energia armazenada na bateria
-        - descarga_bateria : energia descarregada da bateria
-        - soc : estado de carga da bateria no final to timestep
+    - autoconsumo : energia autoconsumida (PV + bateria) [kWh]
+    - injeccao_rede : energia desperdicada [kWh]
+    - consumo_rede : energia consumida da rede [kWh]
+    - carga_bateria : energia armazenada na bateria [kWh]
+    - descarga_bateria : energia descarregada da bateria [kWh]
+    - soc : estado de carga da bateria no final to timestep [%]
 
-    Args:
-    -----
+    Parameters
+    ----------
     energia : pd.DataFrame
-        data frame com as series consumo e autoproducao
+        Data frame com as series consumo e autoproducao.
     bateria : bateria
-        objecto bateria com capacidade e soc_min e soc_max
+        Objecto bateria com capacidade e soc_min e soc_max
     calcula_p90 : bool, default: False
         Se devemos calcular series P90, necessita coluna autoproducao_p90
     bateria_p90 : bateria, default: None
-        objecto bateria com capacidade e soc_min e soc_max para calculos P90. 
-        Tem de ser especificase se calcula_p90 = True
+        Objecto bateria com capacidade e soc_min e soc_max para calculos P90. Tem de ser especificado se calcula_p90 = True
 
-    Returns:
-    --------
+    Returns
+    -------
+    pd.DataFrame
         Data frame com as series calculadas.
     """
     # Algoritmo:
@@ -366,16 +371,17 @@ def _calcula_timestep_upac_com_armazenamento(row, col_consumo, col_autoproducao,
 def calcula_12x24(energia, col):
     """ Calcula matriz 12 meses x 24 horas.
 
-    Args:
-    -----
+    Parameters
+    ----------
     energia: pandas.Dataframe
         Dataframe com a serie temporal de energia.
     col: str 
         Nome da coluna a calcular.
     
-    Returns:
+    Returns
     -------
-    Dataframe com médias de energia por hora por mes
+    pd.DataFrame
+        Dataframe com médias de energia por hora por mes.
     """
     d_12x24 = energia.groupby([energia.index.month, energia.index.hour])[col].mean()
     d_12x24.index.names = ["mes", "hora"]
@@ -385,17 +391,17 @@ def calcula_12x24(energia, col):
 def calcula_7x24(energia, col):
     """ Calcula matriz 7 dias x 24 horas
 
-    Args:
-    -----
-    energia: pd.Datafram
-        Dataframe com a serie temporal de enerugia
+    Parameters
+    ----------
+    energia: pd.Dataframe
+        Dataframe com a serie temporal de energia.
     col: str
         Nome da coluna a calcular
 
-    Returns:
-    --------
-    Dataframe com médias de energia por hora por dia da semana.
-
+    Returns
+    -------
+    pd.DataFrame
+        Dataframe com médias de energia por hora por dia da semana.
     """
     d_7x24 = energia.groupby([energia.index.day_name(), energia.index.hour])[col].mean()
     d_7x24.index.names = ["dia", "hora"]
@@ -406,8 +412,8 @@ def calcula_7x24(energia, col):
 def print_matriz(mat, cmap='bwr'):
     """ Display da matriz 12x24 com color map.
 
-    Args:
-    -----
+    Parameters
+    ----------
     d_12x24: pd.Dataframe
         Dataframe matriz 12x24 ou 7x24
     cmap: str, default: 'bwr'
@@ -419,17 +425,17 @@ def print_matriz(mat, cmap='bwr'):
 def plot_energia_mensal_bars(ax, energia_mensal, consumo_mensal, producao_mensal, nome_cols=["consumo_rede", "autoconsumo", "injeccao_rede"], width=0.5, offset=0, font=8):
     """ Bar plot de consumo rede, autoconsumo e injeccao na rede para cada mes.
 
-    Args:
-    -----
-    ax: plt.axes
-        Objecto axes onde plotar
-    energia_mensal: pd.Dataframe
-        Dataframe com valores de energia em kWh para cada mês para cada uma das colunas em nome_cols
-    consumo_mensal: pd.Dataframe
-        Dataframe com valores de consumo energia para cada mês em kWh. Só pode ter 1 coluna
-    producao_mensal: pd.Dataframe
-        Dataframe com valores de producao da UPAC para cada mês em kWh. Só pode ter 1 coluna
-    nome_cols: list
+    Parameters
+    ----------
+    ax : plt.axes
+        Objecto axes onde plotar.
+    energia_mensal : pd.Dataframe
+        Dataframe com valores de energia em kWh para cada mês para cada uma das colunas em nome_cols.
+    consumo_mensal : pd.Dataframe
+        Dataframe com valores de consumo energia para cada mês em kWh. Só pode ter 1 coluna.
+    producao_mensal : pd.Dataframe
+        Dataframe com valores de producao da UPAC para cada mês em kWh. Só pode ter 1 coluna.
+    nome_cols : list, optional
         Lista com nome da colunas para consumo_rede, autoconsumo, injeccao_rede, descarga_bateria (opcional)
     """
     # colunas
@@ -489,8 +495,8 @@ def plot_energia_mensal_bars(ax, energia_mensal, consumo_mensal, producao_mensal
 def print_tabela_indicadores_html(ia, ia_p90 = None):
     """ Print tabela de indicadores de autoconsumo em formato html. Se especificado inclui coluna com P90.
 
-    Args:
-    -----
+    Parameters
+    ----------
     ia : indicadores_autoconsumo
         Indicadores P50
     ia_p90 : indicadores_autoconsumo, default: None
@@ -578,8 +584,8 @@ def print_tabela_indicadores_html(ia, ia_p90 = None):
 def print_tabela_indicadores_markdown(ia, ia_p90=None):
     """ Print tabela de indicadores de autoconsumo em formato markdown. Se especificado inclui coluna com P90.
 
-    Args:
-    -----
+    Parameters
+    ----------
     ia : indicadores_autoconsumo
         Indicadores P50.
     ia_p90 : indicadores_autoconsumo, default: None

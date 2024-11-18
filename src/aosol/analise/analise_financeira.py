@@ -1,25 +1,25 @@
-""" Contem metodos para analise financeira de um projecto.
+r""" Contem metodos para analise financeira de um projecto.
 
-Calculo do VAL, TIR, Tempo de retorno de um projecto e o LCOE (levelized cost of energy)
-do sistema produtor
+Notes
+-----
 
-.. math:
-    VAL_n = \sum_{k=0}^{n} \frac{CF_{(in)}(k) - CF_{(out)}(k)}{(1+i)^k}
+Calculo do VAL, TIR, Tempo de retorno [1]_ [2]_ de um projecto e o LCOE (levelized cost of energy)
+do sistema produtor.
 
-.. math:
-    VAL_n = \sum_{k=0}^{n} \frac{CF_{(in)}(k) - CF_{(out)}(k)}{(1+TIR_n)^k} = 0
+.. math:: VAL_n = \sum_{k=0}^{n} \frac{CF_{(in)}(k) - CF_{(out)}(k)}{(1+i)^k}
 
-.. math:
-    VAL_n = \sum_{k=0}^{payback} \frac{CF_{(in)}(k) - CF_{(out)}(k)}{(1+TIR_n)^k} = 0
+.. math:: VAL_n = \sum_{k=0}^{n} \frac{CF_{(in)}(k) - CF_{(out)}(k)}{(1+TIR_n)^k} = 0
 
-Calculo do LCOE pelo método descrito no simulador NREL [2].
+.. math:: VAL_n = \sum_{k=0}^{payback} \frac{CF_{(in)}(k) - CF_{(out)}(k)}{(1+TIR_n)^k} = 0
 
-[1] Bloco 9 - Análise Investimentos, Universidade Evora.
+Calculo do LCOE pelo método descrito no simulador NREL [3]_.
+
+.. [1] Bloco 9 - Análise Investimentos, Universidade Evora. 
     Em https://dspace.uevora.pt/rdpc/bitstream/10174/6309/11/BLOCO9.pdf
-[2] F Militão, J Alberto. "O Método de Newton-Raphson no Cálculo do TIR", 
+.. [2] F Militão, J Alberto. "O Método de Newton-Raphson no Cálculo do TIR", 
     UNOPAR Cient. Exatas Tecnol., Londrina, v. 11, n. 1, p. 59-63, Nov. 2012
-[3] SJ Andrews, B Smith, MG Deceglie, KA Horowitz, and TJ Silverman. “NREL Comparative PV LCOE Calculator.” 
-    Version 2.0.0, August 2021
+.. [3] SJ Andrews, B Smith, MG Deceglie, KA Horowitz, and TJ Silverman. “NREL Comparative PV LCOE Calculator.” 
+    Version 2.0.0, August 2021. Em https://www.nrel.gov/pv/lcoe-calculator/documentation.html
 """
 import pandas as pd
 import numpy as np
@@ -44,8 +44,8 @@ def analise_poupanca_anual_fatura(energia
     """ Calcula os custos de fatura em cada mes e anual da com e sem UPAC, e a respectiva poupanca. Pode
     calcular também considerando a venda do excedente à rede.
 
-    Args:
-    -----
+    Parameters
+    ----------
     energia : pandas.DataFrame
         Deve conter colunas para 'consumo' e 'consumo_rede'. Adicionalmente a coluna 'injeccao_rede'
         se a venda a rede for incluida. Nomes especificados em nome_cols
@@ -60,10 +60,10 @@ def analise_poupanca_anual_fatura(energia
     ano_tarifario: int, default: 0
         Ano do tarifario para cálculo do tarifario trihorario. So é relevante para esse tarifário.
 
-    Returns:
+    Returns
     -------
     mensal: pandas.DataFrame 
-        Com os custos mensais e agregado anual
+        Com os custos mensais e agregado anual.
     """
     if (len(nome_cols) != 2) & (len(nome_cols) != 3) & (~venda_rede):
         raise ValueError("nome_cols deve ter 2 ou 3 valores quando venda_rede=False.")
@@ -156,8 +156,8 @@ def analise_financeira_projecto_faturas(energia
     """ Calcula VAL, TIR e Tempo de retorno de projecto, LCOE utilizando o método dos cash-flows descontados. 
     Poupança calculada a partir do valores da faturas.
 
-    Args:
-    -----
+    Parameters
+    ----------
     energia: pandas.DataFrame
         Serie temporal de energia em kwh na coluna 'autoconsumo'. 
         Adicionalmente coluna 'injeccao_rede' quando incluido venda à rede.
@@ -187,12 +187,12 @@ def analise_financeira_projecto_faturas(energia
         Necessario para calculo do lcoe, necessita da capacidade instalada e horas equivalentes.
         Se None o lcoe não é calculado
 
-    Returns:
-    --------
+    Returns
+    -------
     data: indicadores_financeiros
-        Os indicadores financeiros val, tir, tempo retorno, capex, opex, tempo_vida e lcoe
+        Os indicadores financeiros val, tir, tempo retorno, capex, opex, tempo_vida e lcoe.
     financeiro: pd.DataFrame
-        Fluxos de caixa anuais utilizados na analise
+        Fluxos de caixa anuais utilizados na analise.
     """
     if (len(nome_cols) != 2) & (len(nome_cols) != 3) & (~venda_rede):
         raise ValueError("nome_cols deve ter 2 ou 3 valores quando venda_rede=False.")
@@ -338,12 +338,14 @@ def analise_financeira_projecto_indicadores_autoconsumo_faturas(indicadores_auto
                                                         , venda_rede
                                                         , nome_cols=['consumo', 'consumo_rede', 'injeccao_rede']):
     """ Analise financeira de projecto a partir de indicador de autoconsumo (IAC) e dos valores de consumo e produção
-    anuais. A análise tem como objectivo saber como seria o projecto com um IAC teórico. 
-    Como a análise é feita sobre valores anuais igualmente distribuidos pelos mêses, apenas é possível utilizar o 
-    tarifário simples. Não é possível prever o consumo e produção em bihorario e trihorario
+    anuais. 
+    
+    A análise tem como objectivo saber como seria o projecto com um IAC teórico. Como a análise é feita sobre valores anuais 
+    igualmente distribuidos pelos mêses, apenas é possível utilizar o tarifário simples. 
+    Não é possível prever o consumo e produção em bihorario e trihorario.
 
-    Args:
-    -----
+    Parameters
+    ----------
     indicadores_autoconsumo : indicadores_autoconsumo
         Utilização da energia anual consumida e produzida para a análise financeira. O iac é ignorado.
     iac_a_considerar: float

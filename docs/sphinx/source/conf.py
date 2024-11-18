@@ -34,6 +34,7 @@ suppress_warnings = ['autosectionlabel.*']
 
 autoapi_dirs = ['../../../src/aosol']
 autoapi_add_toctree_entry = True
+autoapi_keep_files = False
 # unused autoapi options 'private-members', 'special-members'
 autoapi_options = ['members', 'undoc-members', 'show-inheritance', 'show-module-summary', 'imported-members',]
 

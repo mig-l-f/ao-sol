@@ -1,7 +1,36 @@
+""" Indicadores de autoconsumo.
+
+Os indicadores para todos os sistemas são:
+
+====================== ======== ===========
+Indicadores            Unidade  Descrição
+====================== ======== ===========
+iac                    %        Indice auto consumo. Quanta da energia produzida é autoconsumida.
+ias                    %        Indice auto suficiência. Quanta da energia total é coberta por autoconsumo.
+ier                    %        Indice entrega a rede [%]. Quanta da energia produzia é entregue à rede.
+energia_autoconsumida  kWh      Total energia autoconsumida.
+energia_rede           kWh      Total energia consumida da rede.
+consumo_total          kWh      Total energia consumida.
+====================== ======== ===========
+
+Adicionalmente, sistimas com bateria têm os seguintes indicadores:
+
+====================== ======== ===========
+Indicadores            Unidade  Descrição
+====================== ======== ===========
+horas_carga_min        h        Número de horas da bateria à carga minima (SOC min).
+perc_carga_min         %        Percentagem do ano à carga miniama.
+horas_carga_max        h        Número de horas da bateria à carga máxima (SOC max).
+perc_carga_max         %        Percenragem do ano à carga máxima.
+num_ciclos             -        Número de ciclos de carregamento da bateria em 1 ano.ß
+====================== ======== ===========
+"""
 from IPython.display import HTML, display
 from tabulate import tabulate
 
 class indicadores_autoconsumo:
+    """ Classe que contêm os indicadores de autoconsumo.
+    """
     def __init__(self, iac, ias, ier, capacidade_instalada, energia_autoproduzida, energia_autoconsumida, energia_rede, consumo_total, armazenamento=False, horas_carga_min=0, horas_carga_max=0, num_ciclos_bateria=0, capacidade_bateria=0):
         self._iac = iac
         self._ias = ias

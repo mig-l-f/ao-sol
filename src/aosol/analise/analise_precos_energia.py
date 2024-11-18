@@ -1,6 +1,7 @@
-""" Funcoes para analisar os gastos e precos de energia para os diferentes ciclos horarios em BTN
+""" Funcoes para analisar os gastos e precos de energia para os diferentes ciclos horarios em BTN [1]_.
 
-Fonte: https://www.erse.pt/media/wijn0vgt/periodos-hor%C3%A1rios-de-energia-el%C3%A9trica-em-portugal.pdf
+.. [1] ERSE. Períodos horários na energia em Portugal.
+    Em https://www.erse.pt/media/wijn0vgt/periodos-hor%C3%A1rios-de-energia-el%C3%A9trica-em-portugal.pdf
 """
 
 from datetime import datetime
@@ -150,30 +151,31 @@ def calcula_fatura_tarifario_simples(consumo, n_dias, custo_kwh, pot_contratada,
 def calcula_fatura_tarifario_bihorario(consumo_fora_vazio, consumo_vazio, n_dias, custo_kwh_fora_vazio, custo_kwh_vazio, pot_contratada, pot_contratada_custo_dia, termo_fixo_redes_custo_dia):
     """ Calcula fatura de energia completa com iva e todos os termos para tarifario bi-horario
 
-    Fonte: https://www.erse.pt/media/pzievesl/ersexplica_aplica%C3%A7%C3%A3o-do-iva.pdf
+    Parameters
+    ----------
+    consumo_fora_vazio : float
+        Consumo em kWh durante o periodo fora de vazio. [kWh]
+    consumo_vazio : float
+        Consumo em kWh durante o periodo de vazio. [kWh]
+    n_dias : int
+        Numero de dias do periodo de faturacao. [-]
+    custo_kwh_fora_vazio : float
+        Preco de kWh periodo fora de vazio. [€]
+    custo_kwh_vazio : float
+        Preco de kWh periodo vazio. [€]
+    pot_contratada : PotenciaContratada
+        Enum com a potencia contratada em kVA
+    pot_contratada_custo_dia : float
+        Termo potência contratada. [€/dia]
+    termo_fixo_redes_custo_dia : float
+        Termo fixo de acesso às redes da potência contratada. [€/dia]
 
-    Args:
-        consumo_fora_vazio : float
-            Consumo em kWh durante o periodo fora de vazio
-        consumo_vazio : float
-            Consumo em kWh durante o periodo de vazio
-        n_dias : int
-            Numero de dias do periodo de faturacao
-        custo_kwh_fora_vazio : float
-            Preco de kWh periodo fora de vazio em €
-        custo_kwh_vazio : float
-            Preco de kWh periodo vazio em €
-        pot_contratada : PotenciaContratada
-            Enum com a potencia contratada em kVA
-        pot_contratada_custo_dia : float
-            Termo potência contratada em valor €/dia
-        termo_fixo_redes_custo_dia : float
-            Termo fixo de acesso às redes da potência contratada. Valor em €/dia
-    Returns:
-        total_c_iva : float
-            Custo total da fatura com IVA em €
-        total_s_iva : float
-            Custo total da fatura sem IVA em €        
+    Returns
+    -------
+    total_c_iva : float
+        Custo total da fatura com IVA. [€]
+    total_s_iva : float
+        Custo total da fatura sem IVA. [€]
     """
     limiar_consumo_30_dias = 100 #
     imposto_especial_consumo = 0.001 # €/kWh
@@ -316,14 +318,17 @@ def calcula_energia_mensal_tarifario_simples(energia, col):
     """ Calcula o consumo em cada mes da series temporal de energia. 
     Valor a ser utilizado para calcular o tarifario simples.
 
-    Args:
-        energia : pandas.DataFrame
-            Dataframe com as series temporais de energia
-        col : string
-            coluna da dataframe com a serie de energia
-    Returns:
-        energia_mensal : pandas.DataFrame
-            Dataframe com serie mensal de consumo em coluna consumo
+    Parameters
+    ----------
+    energia : pandas.DataFrame
+        Dataframe com as series temporais de energia
+    col : str
+        coluna da dataframe com a serie de energia
+
+    Returns
+    -------
+    energia_mensal : pandas.DataFrame
+        Dataframe com serie mensal de consumo em coluna consumo.
     """
     consumo_mensal = energia[col].resample('M').sum().to_frame('consumo')
     return consumo_mensal
@@ -332,14 +337,17 @@ def calcula_energia_mensal_tarifario_bihorario(energia, col):
     """ Calcula o consumo em periodo vazio e fora vazio em cada mes da series temporal de energia. 
     Valor a ser utilizado para calcular o tarifario bihorario.
 
-    Args:
-        energia : pandas.DataFrame
-            Dataframe com as series temporais de energia
-        col : string
-            coluna da dataframe com a serie de energia
-    Returns:
-        energia_mensal : pandas.DataFrame
-            Dataframe com serie mensal de consumo em colunas vazio e fora_vazio
+    Parameters
+    ----------
+    energia : pandas.DataFrame
+        Dataframe com as series temporais de energia.
+    col : str
+        coluna da dataframe com a serie de energia.
+
+    Returns
+    -------
+    energia_mensal : pandas.DataFrame
+        Dataframe com serie mensal de consumo em colunas vazio e fora_vazio.
     """
     energia_df = energia.copy()
     # Hora legal inverno/verao:
@@ -356,16 +364,19 @@ def calcula_energia_mensal_tarifario_trihorario(energia, col, ano):
     """ Calcula o consumo em periodo ponta, cheia e vazio em cada mes da series temporal de energia. 
     Valor a ser utilizado para calcular o tarifario trihorario.
 
-    Args:
-        energia : pandas.DataFrame
-            Dataframe com as series temporais de energia
-        col : string
-            coluna da dataframe com a serie de energia
-        ano : int
-            ano para o qual estamos a calcular
-    Returns:
-        energia_mensal : pandas.DataFrame
-            Dataframe com serie mensal de consumo em colunas 'ponta', 'cheia' e 'vazio'
+    Parameters
+    ----------
+    energia : pandas.DataFrame
+        Dataframe com as series temporais de energia.
+    col : str
+        coluna da dataframe com a serie de energia.
+    ano : int
+        ano para o qual estamos a calcular.
+
+    Returns
+    -------
+    energia_mensal : pandas.DataFrame
+        Dataframe com serie mensal de consumo em colunas 'ponta', 'cheia' e 'vazio'.
     """
     energia_df = energia.copy()
     # Hora de Inverno:
