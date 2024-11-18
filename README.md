@@ -3,7 +3,7 @@
 | Build | Status  |
 | ---- | ------ |
 | Code | [![Build](https://github.com/mig-l-f/ao-sol/actions/workflows/python-package.yml/badge.svg)](https://github.com/mig-l-f/ao-sol/actions/workflows/python-package.yml) |
-| Docs | ![Docs](https://readthedocs.org/projects/ao-sol/badge/?version=latest&style=flat)
+| Docs | [![Docs](https://readthedocs.org/projects/ao-sol/badge/?version=latest&style=flat)](https://ao-sol.readthedocs.io/pt/latest/index.html) |
 
 
 ## Descrição
