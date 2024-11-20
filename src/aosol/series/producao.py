@@ -62,9 +62,9 @@ def converter_pvgis_multiyear_ts(pvgis_tuple, ano):
 
     # groupby mes-dia hora
     df = df.groupby('{:%m-%d %H}'.format).agg(['mean', 'std'])
-    # calcular P90 = P50 * (1 - P90 incerteza)
+    # calcular P90 = P50 - P90 incerteza
     #  P90 incerteza = 1.282 * std
-    df[('autoproducao','p90')] = df[('autoproducao','mean')] * (1.0 - 1.282*df[('autoproducao','std')])
+    df[('autoproducao','p90')] = df[('autoproducao','mean')] - 1.282*df[('autoproducao','std')]
 
     # renomear colunas
     df.columns = list(map('_'.join, df.columns.values))
