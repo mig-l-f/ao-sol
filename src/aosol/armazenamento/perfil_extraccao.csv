@@ -1,0 +1,25 @@
+Hora inicio,S,Tipo S,M,Tipo M,L,Tipo L
+07:00,0.105,Pequeno,0.105,Pequeno,0.105,Pequeno
+07:15,0.0,,1.4,Duche,1.4,Duche
+07:30,0.105,Pequeno,0.105,Pequeno,0.105,Pequeno
+07:45,0.0,,0.0,,0.105,Pequeno
+08:00,0.0,,0.105,Pequeno,3.605,Banho
+08:15,0.0,,0.105,Pequeno,0.105,Pequeno
+08:30,0.105,Pequeno,0.105,Pequeno,0.105,Pequeno
+08:45,0.0,,0.105,Pequeno,0.105,Pequeno
+09:00,0.0,,0.105,Pequeno,0.105,Pequeno
+09:30,0.105,Pequeno,0.105,Pequeno,0.105,Pequeno
+10:30,0.0,,0.105,Limpeza chão,0.105,Limpeza chão
+11:30,0.105,Pequeno,0.105,Pequeno,0.105,Pequeno
+11:45,0.105,Pequeno,0.105,Pequeno,0.105,Pequeno
+12:45,0.315,Lavagem louça,0.315,Lavagem louça,0.315,Lavagem louça
+14:30,0.0,,0.105,Pequeno,0.105,Pequeno
+15:30,0.0,,0.105,Pequeno,0.105,Pequeno
+16:30,0.0,,0.105,Pequeno,0.105,Pequeno
+18:00,0.105,Pequeno,0.105,Pequeno,0.105,Pequeno
+18:15,0.105,Limpeza casa,0.105,Limpeza casa,0.105,Limpeza casa
+18:30,0.0,,0.105,Limpeza casa,0.105,Limpeza casa
+19:00,0.0,,0.105,Pequeno,0.105,Pequeno
+20:30,0.42,Lavagem louça,0.735,Lavagem louça,0.735,Lavagem louça
+21:00,0.0,,0.105,Pequeno,3.605,Banho
+21:30,0.525,Grande,1.4,Duche,0.105,Pequeno

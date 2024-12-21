@@ -26,12 +26,35 @@ class TestProducao(unittest.TestCase):
         self.assertAlmostEqual(1.0, prod['autoproducao'].iloc[0], 2)
         self.assertAlmostEqual(2.0, prod['autoproducao'].iloc[-1], 2)
 
+    def test_converter_pvgis_com_temperatura(self):
+        df = pd.DataFrame({
+            'time' : ['2016-01-01 00:10', '2016-12-31 23:10'],
+            'P' : [1000.0, 2000.0],
+            'poa_global' : [10.0, 10.0],
+            'temp_air': [15.0, 17.0]
+        })
+        df['time'] = pd.to_datetime(df['time'])
+        df = df.set_index('time')
+        dummy1 = []
+        dummy2 = []
+        pvgis_tuple = (df, dummy1, dummy2)
+
+        prod = producao.converter_pvgis_data(pvgis_tuple, 2021, inclui_temp=True)
+        self.assertEqual(datetime(2021, 1, 1, 0, 0, 0), prod.index[0])
+        self.assertEqual(datetime(2021, 12, 31, 23, 0, 0), prod.index[-1])
+        # potencia
+        self.assertAlmostEqual(1.0, prod['autoproducao'].iloc[0], 2)
+        self.assertAlmostEqual(2.0, prod['autoproducao'].iloc[-1], 2)
+        # temp
+        self.assertAlmostEqual(15.0, prod['temperatura'].iloc[0], 2)
+        self.assertAlmostEqual(17.0, prod['temperatura'].iloc[-1], 2)
+
     def test_converter_multiyear_ts(self):
         # Given
         df = pd.DataFrame({
             'time' : ['2018-01-01 00:10', '2018-12-31 23:10', '2019-01-01 00:10', '2019-12-31 23:10'],
             'P': [500.0, 1000.0, 700.0, 1200.0],
-            'poa_global': [10.0, 10.0, 10.0, 10.0]
+            'poa_global': [10.0, 10.0, 10.0, 10.0],
         })
         df['time'] = pd.to_datetime(df['time'])
         df = df.set_index('time')
@@ -67,7 +90,7 @@ class TestProducao(unittest.TestCase):
         pvgis_tuple = (df, dummy1, dummy2)
 
         # When
-        prod = producao.converter_pvgis_multiyear_ts(pvgis_tuple, 2021)
+        prod = producao.converter_pvgis_multiyear_ts(pvgis_tuple, 2021, inclui_temp=True)
 
         # Then
         self.assertEqual(2, len(prod))
@@ -76,11 +99,13 @@ class TestProducao(unittest.TestCase):
         # media (P50)
         self.assertAlmostEqual(0.6, prod['autoproducao'].iloc[0], 2)
         self.assertAlmostEqual(1.1, prod['autoproducao'].iloc[-1], 2)
-        #self.assertAlmostEqual(11.0, prod['temp'].iloc[0], 2)
-        #self.assertAlmostEqual(16.0, prod['temp'].iloc[-1], 2)
+        self.assertAlmostEqual(11.0, prod['temperatura'].iloc[0], 2)
+        self.assertAlmostEqual(16.0, prod['temperatura'].iloc[-1], 2)
         # P90
         self.assertAlmostEqual(0.419, prod['autoproducao_p90'].iloc[0], 2)
         self.assertAlmostEqual(0.919, prod['autoproducao_p90'].iloc[-1], 2) 
+        self.assertAlmostEqual(9.19, prod['temperatura_p90'].iloc[0], 2)
+        self.assertAlmostEqual(14.19, prod['temperatura_p90'].iloc[-1], 2)
 
     def test_inputbisexto_multiano_alvo_naobisexto_pvgis(self):
         # df contem 29/02 mas ano alvo nao é bisexto
