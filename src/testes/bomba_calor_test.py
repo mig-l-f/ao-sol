@@ -50,7 +50,7 @@ class TestBombaCalor(unittest.TestCase):
         bc = BombaCalorAqs(1.55, 3.6, 1.5, params, 0.152, 0.5)
         t_int = 20.0
         perfilL = PerfilExtraccao(TipoPerfil.L)
-        
+
         # when
         df = abc.analisa_consumo_bomba_calor(df, bc, t_int, perfilL)
         
@@ -133,7 +133,8 @@ class TestBombaCalor(unittest.TestCase):
             "energia_extr_aqs": [5.0, 5.0, 5.0],
             "energia_bc" : [4.0, 4.0, 4.0],
             "energia_resist": [1.0, 1.0, 1.0],
-            "energia_usada_bc": [0.5, 0.5, 0.5]
+            "energia_usada_bc": [0.5, 0.5, 0.5],
+            "energia_perd_dep": [0.05, 0.04, 0.01]
         })
 
         df["time"] = pd.to_datetime(df["time"])
@@ -141,10 +142,19 @@ class TestBombaCalor(unittest.TestCase):
 
         ind = abc.calcula_indicadores_bomba_calor(df, 45.0)
 
+        self.assertEqual(3, ind.n_dias)
         self.assertAlmostEqual(3.33, ind.scop, 2)
+        self.assertAlmostEqual(12.0, ind.energia_term_bc, 1)
         self.assertAlmostEqual(1.5, ind.energia_elec_bc, 1)
         self.assertAlmostEqual(3.0, ind.energia_elec_resist, 1)
+        self.assertAlmostEqual(0.1, ind.energia_perd_dep, 1)
         self.assertAlmostEqual(0.2, ind.frac_backup)
+        # Quantidades por dia
+        self.assertAlmostEqual(4.0, ind.energia_term_bc_p_dia, 1)
+        self.assertAlmostEqual(0.5, ind.energia_elec_bc_p_dia, 1)
+        self.assertAlmostEqual(1.0, ind.energia_elec_resist_p_dia, 1)
+        self.assertAlmostEqual(0.033, ind.energia_perd_dep_p_dia, 3)
+
         self.assertEqual(1, ind.n_horas_min)
 
     @parameterized.expand([

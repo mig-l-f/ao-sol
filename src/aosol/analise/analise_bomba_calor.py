@@ -19,7 +19,6 @@ def analisa_consumo_bomba_calor(energia, bc, t_int, perfil_extraccao, t_deposito
       - consumo : consumo electrico da BC [kWh].
       - t_deposito : tempetura do depósito [ºC].
       - t_sala : temperatura do local onde está o depósito [ºC].
-      - energia_dep : energia contida no depósito [kWh].
       - energia_perd_dep : energia perdida pelo depósito [kWh].
       - energia_extr_aqs : energia extraida para AQS [kWh].
       - energia_bc : energia térmica fornecida pela BC [kWh].
@@ -98,10 +97,12 @@ def calcula_indicadores_bomba_calor(energia_bc, t_min_s):
       e_tot_resist = energia_bc["energia_resist"].sum()
       e_extraida_bc = energia_bc["energia_extr_aqs"].sum()
       e_termica_bc = energia_bc["energia_bc"].sum()
+      e_tot_perd_dep = energia_bc["energia_perd_dep"].sum()
 
       scop = e_extraida_bc / (e_tot_resist + e_tot_usada_bc)
       frac_resist = e_tot_resist / (e_termica_bc + e_tot_resist)
       n_horas_abaixo_min = (energia_bc['t_deposito'] < t_min_s-1e-5).sum()
+      n_dias = (energia_bc.index[-1] - energia_bc.index[0]).days + 1 #inclusive
 
-      return indicadores_bomba_calor(scop, e_termica_bc, e_tot_usada_bc, e_tot_resist, frac_resist, n_horas_abaixo_min)
+      return indicadores_bomba_calor(scop, e_termica_bc, e_tot_usada_bc, e_tot_resist, e_tot_perd_dep, frac_resist, n_horas_abaixo_min, n_dias)
                                    
