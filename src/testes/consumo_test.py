@@ -47,3 +47,12 @@ class TestConsumo(unittest.TestCase):
 
         print(leituras)
         self.assertEqual(12, len((leituras.index)))
+
+    def test_leitura_diagrama_de_carga(self):
+        pasta = os.path.dirname(__file__)
+        ano_leituras = 2021
+        ano_converter = 2023
+        perfil_carga = consumo.leitura_ficheiros_mensais_medicao_eredes(pasta, ano_leituras, ano_a_considerar=ano_converter)
+
+        self.assertEqual(2023, perfil_carga.index[0].year)
+        self.assertEqual(2023, perfil_carga.index[-1].year)        

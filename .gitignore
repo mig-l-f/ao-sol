@@ -4,3 +4,4 @@ __pycache__
 docs/sphinx/build
 autobuild.sh
 */sphinx/source/autoapi
+*bomba_calor_dev.xlsx

@@ -1,7 +1,12 @@
-""" Funcoes para analisar os gastos e precos de energia para os diferentes ciclos horarios em BTN [1]_.
+""" Funcoes para analisar o preço da faturas [1]_ e precos de energia para os diferentes ciclos horarios em BTN [2]_.
 
-.. [1] ERSE. Períodos horários na energia em Portugal.
+.. [1] ERSE. Aplicação do IVA na factura da electricidade.
+    Em https://www.erse.pt/media/yodok3zt/ersexplica_aplica%C3%A7%C3%A3o-do-iva.pdf
+    Versão implementada Dezembro 2020.
+
+.. [2] ERSE. Períodos horários na energia em Portugal.
     Em https://www.erse.pt/media/wijn0vgt/periodos-hor%C3%A1rios-de-energia-el%C3%A9trica-em-portugal.pdf
+
 """
 
 from datetime import datetime

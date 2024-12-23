@@ -182,7 +182,7 @@ def leitura_consumo_faturas(ficheiro, ano):
     return consumos
 
 def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de Consumo kW", col_producao = "Dados de Producao kW", 
-                                             resample_horario=True, worksheet="Leituras"):
+                                             resample_horario=True, worksheet="Leituras", ano_a_considerar=None):
     """ Leitura de ficheiros excel mensais de uma pasta no formato <mes>_<ano>.xlsx com os dados
     medidos de consumo obtidos do balcao digita e-redes.
 
@@ -198,8 +198,10 @@ def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de C
         Nome da coluna com dados de produção. Pode não existir.
     resample_horario : bool, default: True
         Se queremos fazer resample dos dados para horario depois da conversão para energia. Utilizada soma. Defaul
-    worksheet : str
+    worksheet : str, default: Leituras
         Nome da folha excel a ler, tem de ser o mesmo em todos os ficheiros
+    ano_a_considerar : int, default: None
+        Converter as leituras para este ano.
 
     Returns
     -------
@@ -217,6 +219,9 @@ def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de C
     df = pd.concat(li, axis=0, ignore_index=True)
     df["Timestamp"] = df["Data"] + " " + df["Hora"]
     df["Timestamp"] = pd.to_datetime(df["Timestamp"])
+    if ano_a_considerar is not None:
+        delta_anos = ano_a_considerar - ano
+        df["Timestamp"] = df["Timestamp"].apply(lambda x: x + relativedelta(years=delta_anos))
     df = df.set_index("Timestamp")
     df = df.drop("Data", axis=1)
     df = df.drop("Hora", axis=1)
