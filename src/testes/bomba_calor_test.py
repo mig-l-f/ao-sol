@@ -129,7 +129,7 @@ class TestBombaCalor(unittest.TestCase):
     def test_calcula_indicadores_bc(self):
         df = pd.DataFrame({
             "time": ['2010-01-01 10:00:00', '2010-01-02 10:00:00', '2010-01-03 10:00:00'],
-            "t_deposito": [50.0, 45.0, 40.0],
+            "t_deposito": [50.0, 45.0, 39.0],
             "energia_extr_aqs": [5.0, 5.0, 5.0],
             "energia_bc" : [4.0, 4.0, 4.0],
             "energia_resist": [1.0, 1.0, 1.0],
@@ -140,7 +140,7 @@ class TestBombaCalor(unittest.TestCase):
         df["time"] = pd.to_datetime(df["time"])
         df = df.set_index("time")
 
-        ind = abc.calcula_indicadores_bomba_calor(df, 45.0)
+        ind = abc.calcula_indicadores_bomba_calor(df, 40.0)
 
         self.assertEqual(3, ind.n_dias)
         self.assertAlmostEqual(3.33, ind.scop, 2)

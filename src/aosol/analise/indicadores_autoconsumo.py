@@ -27,6 +27,7 @@ num_ciclos             -        Número de ciclos de carregamento da bateria em 
 """
 from IPython.display import HTML, display
 from tabulate import tabulate
+import pandas as pd
 
 class indicadores_autoconsumo:
     """ Classe que contêm os indicadores de autoconsumo.
@@ -147,6 +148,28 @@ class indicadores_autoconsumo:
         """ Capacidade da bateria em kWh
         """
         return self._capacidade_bateria
+
+    def to_frame(self):
+        """ Dataframe com indicadores
+        """
+        ind = pd.DataFrame({
+            "quant": ["Potencia instalada [kW]", "Energia Autoproduzida [kWh]", "Energia Autoconsumida [kWh]", \
+                            "Energia consumida rede [kWh]", "Energia consumida [kWh]", "Numero de horas equivalentes [h/ano]", \
+                            "IAS: Contributo PV [%]", "IAC: Indice Auto consumo [%]", "IER: Producao PV desperdicada [%]"],
+            "indicadores": [self._capacidade_instalada, self._energia_autoproduzida, self._energia_autoconsumida,\
+                            self._energia_rede, self._consumo_total, self.horas_equivalentes,\
+                            self._ias, self._iac, self._ier]
+        })
+        if (self.com_armazenamento):
+            ind = pd.concat([ind, pd.DataFrame({
+                "quant": ["Bateria:", "Capacidade bateria [kWh]", "Em carga minima [hr]", "Em carga minima [%]", \
+                          "Em carga máxima [hr]", "Em carga máxima [%]", "Ciclos da bateria"],
+                "indicadores": ['', self._capacidade_bateria, self._horas_carga_min, self.perc_horas_carga_min, \
+                                self._horas_carga_max, self.perc_horas_carga_max, self._n_ciclos_bat]
+            })])
+            
+        ind = ind.set_index("quant")
+        return ind
 
     def print_html(self):
         """ print as a html table

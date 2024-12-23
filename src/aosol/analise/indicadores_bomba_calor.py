@@ -108,7 +108,7 @@ class indicadores_bomba_calor:
             Nome/identificado da análise.
         """
         stats = pd.DataFrame({
-            "quant": ["e_term_bc [kWh]", "e_elec_bc [kWh]", "e_elec_resist [kWh]", "e_perd_dep [kWH]", "scop [-]", "frac_resist [-]", "n horas < t_min_s [-]"],
+            "quant": ["Energia termica BC [kWh]", "Consumo electrico BC [kWh]", "Consumo electrico Resistencia [kWh]", "Perda ambient depósito [kWH]", "SCOP [-]", "Fraccao resistencia [-]", "Num horas abaixo temperatura min [-]"],
             nome: [self.energia_term_bc, self.energia_elec_bc, self.energia_elec_resist, self.energia_perd_dep, self.scop, self.frac_backup, self.n_horas_min],
             f"{nome} [p/dia]": [self.energia_term_bc_p_dia, self.energia_elec_bc_p_dia, self.energia_elec_resist_p_dia, self.energia_perd_dep_p_dia, None, None, None]
         })

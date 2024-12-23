@@ -5,7 +5,7 @@ import aosol.armazenamento.perfil_extraccao
 from aosol.analise.indicadores_bomba_calor import indicadores_bomba_calor
 import sys
 
-def analisa_consumo_bomba_calor(energia, bc, t_int, perfil_extraccao, t_deposito_inicial=-1.0):
+def analisa_consumo_bomba_calor(energia, bc, t_int, perfil_extraccao, t_deposito_inicial=-1.0, col_temp_ext='t_ext'):
       """ Analisa o consumo eléctrico da bomba de calor (BC) a partir de dados de temperatura exterior 
       num intervalo horário aplicando um modelo semelhante a [1]_.
 
@@ -38,6 +38,8 @@ def analisa_consumo_bomba_calor(energia, bc, t_int, perfil_extraccao, t_deposito
       t_deposito_inicial : float, default: -1.0
             Temperatura inicial do depósito, para inicializar o modelo. [ºC]
             Caso seja negativa é assumido a temperatura na sala onde está o depósito.
+      col_temp_ext : str, default: t_ext
+            Nome da coluna com temperatura exterior, por defeito é t_ext.
 
       Returns
       -------
@@ -46,7 +48,7 @@ def analisa_consumo_bomba_calor(energia, bc, t_int, perfil_extraccao, t_deposito
       """
       i = 0
       for index, row in energia.iterrows():
-            t_sala = bc.calcula_temperatura_sala_deposito(t_int, row['t_ext'])
+            t_sala = bc.calcula_temperatura_sala_deposito(t_int, row[col_temp_ext])
             if (i == 0):
                   if (t_deposito_inicial < 0.0):
                         t_deposito_ant = t_sala
@@ -78,15 +80,15 @@ def analisa_consumo_bomba_calor(energia, bc, t_int, perfil_extraccao, t_deposito
 
       return energia
 
-def calcula_indicadores_bomba_calor(energia_bc, t_min_s):
+def calcula_indicadores_bomba_calor(energia_bc, t_consumo=40):
       """ Calcula indicadores da bomba de calor.
 
       Parameters
       ----------
       energia_bc : pd.Dataframe
             Resultado da análise da bomba de calor.
-      t_min_s : float
-            Temperatura mínima depósito. [ºC]
+      t_consumo : float, default: 40
+            Temperatura de agua de consumo. [ºC]
 
       Returns
       -------
@@ -101,7 +103,7 @@ def calcula_indicadores_bomba_calor(energia_bc, t_min_s):
 
       scop = e_extraida_bc / (e_tot_resist + e_tot_usada_bc)
       frac_resist = e_tot_resist / (e_termica_bc + e_tot_resist)
-      n_horas_abaixo_min = (energia_bc['t_deposito'] < t_min_s-1e-5).sum()
+      n_horas_abaixo_min = (energia_bc['t_deposito'] < t_consumo-1e-5).sum()
       n_dias = (energia_bc.index[-1] - energia_bc.index[0]).days + 1 #inclusive
 
       return indicadores_bomba_calor(scop, e_termica_bc, e_tot_usada_bc, e_tot_resist, e_tot_perd_dep, frac_resist, n_horas_abaixo_min, n_dias)
