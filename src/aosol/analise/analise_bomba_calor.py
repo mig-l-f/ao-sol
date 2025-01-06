@@ -1,4 +1,11 @@
-""" Análise ao desempenho de bomba de calor para AQS
+""" Análise ao desempenho de bomba de calor para AQS.
+
+References
+----------
+
+.. [6] Naldi, Claudia & Morini, Gian & Zanchini, E.. (2014). 
+       A method for the choice of the optimal balance-point temperature of air-to-water heat pumps for heating. 
+       Sustainable Cities and Society. Em https://doi.org/10.1016/j.scs.2014.02.005
 """
 import aosol.armazenamento.bomba_calor_aqs
 import aosol.armazenamento.perfil_extraccao
@@ -7,7 +14,7 @@ import sys
 
 def analisa_consumo_bomba_calor(energia, bc, t_int, perfil_extraccao, t_deposito_inicial=-1.0, col_temp_ext='t_ext'):
       """ Analisa o consumo eléctrico da bomba de calor (BC) a partir de dados de temperatura exterior 
-      num intervalo horário aplicando um modelo semelhante a [1]_.
+      num intervalo horário aplicando um modelo semelhante a [6]_.
 
       Se a dataframe já contêm dados de consumo, o consumo da BC é adicionado ao mesmo caso contrário é criada essa coluna.
       A dataframe deve conter as colunas:

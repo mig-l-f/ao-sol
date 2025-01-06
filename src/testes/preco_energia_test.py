@@ -148,3 +148,44 @@ class TestPrecoEnergia(unittest.TestCase):
         self.assertEqual(12*1, consumo_mensal['cheia'].sum())
         self.assertEqual(12*2, consumo_mensal['ponta'].sum())
         self.assertEqual(12*3, consumo_mensal['vazio'].sum())
+
+    def test_identifica_periodos_bihorario(self):
+        df = pd.DataFrame({
+            'stamp':['2022-01-01 00:00', '2022-01-01 08:00', '2022-01-01 12:00', '2022-01-01 18:00', '2022-01-01 22:00'],
+            'consumo': [1., 1., 1., 1., 1.]
+        })
+
+        df['stamp'] = pd.to_datetime(df['stamp'])
+        df = df.set_index('stamp')
+
+        df = ape.identifica_periodo_tarifario_bihorario(df)
+
+        self.assertEqual('vazio', df['periodo tarifario'].values[0])
+        self.assertEqual('fora vazio', df['periodo tarifario'].values[1])
+        self.assertEqual('fora vazio', df['periodo tarifario'].values[2])
+        self.assertEqual('fora vazio', df['periodo tarifario'].values[3])
+        self.assertEqual('vazio', df['periodo tarifario'].values[4])
+
+    def test_identifica_periodos_trihorario(self):
+        df = pd.DataFrame({
+            'stamp': [
+                # Ponta,             Ponta,              Cheia,            Vazio
+                '2022-01-01 10:00', '2022-01-01 19:00', '2022-01-01 20:45', '2022-01-02 03:00', # inverno
+                # Cheia,             Cheia               Ponta             Vazio
+                '2022-08-01 10:00', '2022-08-01 19:00', '2022-08-01 20:45', '2022-08-02 03:00', # verao
+            ]
+        })
+
+        df['stamp'] = pd.to_datetime(df['stamp'])
+        df = df.set_index('stamp')
+
+        df = ape.identifica_periodo_tarifario_trihorario(df, 2022)
+
+        self.assertEqual('ponta', df['periodo tarifario'].values[0])
+        self.assertEqual('ponta', df['periodo tarifario'].values[1])
+        self.assertEqual('cheia', df['periodo tarifario'].values[2])
+        self.assertEqual('vazio', df['periodo tarifario'].values[3])
+        self.assertEqual('cheia', df['periodo tarifario'].values[4])
+        self.assertEqual('cheia', df['periodo tarifario'].values[5])
+        self.assertEqual('ponta', df['periodo tarifario'].values[6])        
+        self.assertEqual('vazio', df['periodo tarifario'].values[7])

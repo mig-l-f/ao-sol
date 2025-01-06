@@ -12,7 +12,15 @@ do sistema produtor.
 
 .. math:: VAL_n = \sum_{k=0}^{payback} \frac{CF_{(in)}(k) - CF_{(out)}(k)}{(1+TIR_n)^k} = 0
 
-Calculo do LCOE pelo método descrito no simulador NREL [3]_.
+Calculo do LCOE pelo método descrito no simulador NREL [3]_. Este método apenas considera os
+custos do sistema PV e a sua produção ao longo do tempo de vida.
+
+Custo de energia na optica do prosumidor [4]_ é diferente do LCOE da NREL na medida em que calcula o 
+custo médio do kWh consumido considerando PV, consumido da rede e da bateria se incluido e pode ser compara directmente 
+com o custo de compra à rede. Para um sistema com bateria é assumido que as mesmas terão de ser mudadas 1x ao longo do tempo de vida do projecto.
+
+References
+----------
 
 .. [1] Bloco 9 - Análise Investimentos, Universidade Evora. 
     Em https://dspace.uevora.pt/rdpc/bitstream/10174/6309/11/BLOCO9.pdf
@@ -20,6 +28,9 @@ Calculo do LCOE pelo método descrito no simulador NREL [3]_.
     UNOPAR Cient. Exatas Tecnol., Londrina, v. 11, n. 1, p. 59-63, Nov. 2012
 .. [3] SJ Andrews, B Smith, MG Deceglie, KA Horowitz, and TJ Silverman. “NREL Comparative PV LCOE Calculator.” 
     Version 2.0.0, August 2021. Em https://www.nrel.gov/pv/lcoe-calculator/documentation.html
+.. [4] S. Quoilin, K. Kavvadias, A. Mercier, I. Pappone, A. Zucker, 
+       Quantifying self-consumption linked to solar home battery systems: statistical analysis and economic assessment, 
+       Applied Energy, 2016
 """
 import pandas as pd
 import numpy as np
@@ -453,6 +464,92 @@ def analise_financeira_projecto_indicadores_autoconsumo_faturas(indicadores_auto
 
     return indicadores_financeiros(val, tir, tr, capex, opex, tempo_vida, lcoe), financeiro
 
+def custo_energia_prosumidor(energia, pot_instalada, cap_bat, tarifario, params_financeiros):
+    """ Custo da energia na perspectiva do prosumidor.
+
+    Custo da energia ao longo da vida do projecto englobando o investimento em UPAC/baterias, 
+    energia consumida da rede e vendida à rede.
+
+    Parameters
+    ----------
+    energia : pd.Dataframe
+        Dataframe com coluna: 'consumo', 'consumo_rede', 'injeccao_rede' e 'descarga_bateria'
+    pot_instalada : float
+        Potencia da UPAC. [kWp]
+    cap_bat : float
+        Capacidade da bateria. [kWh]
+    energia_rede : float
+        Total de energia consumida da rede. [kWh]
+    energia_injectada_rede : float
+        Total de energia injectada na rede. [kWh]
+    consumo_anual : float
+        Total de consumo anual de energia. [kWh]
+    tarifario : Tarifario
+        Tipo de tarifario, so disponivel simples e bihorario.
+    params_financeiros : dict
+        Dicionario com os parametros financeiros, seguintes parametros:
+        - tempo_vida: tempo de vida do projecto. [anos]
+        - tempo_vida_bat: tempo de vida da bateria. [anos]
+        - pv_por_kW: custo de cada kWp instalado de PV. [€/kW]
+        - bat_fixo: custo fixo de instalação de bateria. [€]
+        - bat_euro_por_kWh: custo por cada kWh de bateria instalado. [€/kWh]
+        - perc_custo_manutencao: percentagem do investimento gasto em manutenção anual. [%]
+        - taxa_actualização: taxa de actualização. [%]
+        - simples_kwh: preço compra à rede em tarifário simples. Só usado quando tarifario = tarifario.Simples. [€/kWh]
+        - vazio_kwh: preço de compra à rede em vazio no tarifario bihorario. Só usado quando tarifario = tarifario.Bihorario. [€/kWh]
+        - fora_vazio_kwh: preço de compra à rede fora de vazio no tarifario bihorario. Só usado quando tarifario = tarifario.Bihorario .[€/kWh]
+        - preco_venda_rede: Preco de venda da energia à rede. [€/kWh]
+
+    Returns
+    -------
+    coe : float
+        Custo da energia poderado de cada kWh consumido. [€/kWh]
+    coa : float
+        Custo de armazenamento por kWh consumido da bateria. [€/kWh]
+    custo_medio_compra_rede : float
+        Custo medio da energia comprada à rede. [€/kWh]
+    """
+    consumo_anual = energia["consumo"].sum()
+    energia_injectada_rede = energia["injeccao_rede"].sum()
+    if 'descarga_bateria' in energia.columns:
+        energia_bateria = energia['descarga_bateria'].sum()
+    else:
+        energia_bateria = 0
+
+    custo_medio_compra_rede = 0
+    total_consumo_rede = energia["consumo_rede"].sum()
+    if tarifario == ape.Tarifario.Simples:
+        compra_rede = total_consumo_rede * params_financeiros["simples_kwh"]
+        custo_medio_compra_rede = params_financeiros["simples_kwh"]
+    elif tarifario == ape.Tarifario.Bihorario:
+        energia = ape.identifica_periodo_tarifario_bihorario(energia)
+        total_vazio = energia.loc[(energia['periodo tarifario'] == 'vazio'), 'consumo_rede'].sum()
+        total_fora_vazio = energia.loc[(energia['periodo tarifario'] == 'fora vazio'), 'consumo_rede'].sum()
+        compra_rede = total_vazio * params_financeiros["vazio_kwh"] + total_fora_vazio * params_financeiros["fora_vazio_kwh"]
+        custo_medio_compra_rede = compra_rede / total_consumo_rede
+    else:
+        raise Exception('Custo de energia so aceita tarifario simples ou bihorario.')
+
+    invest_pv = params_financeiros["pv_por_kW"] * pot_instalada
+    om = params_financeiros["perc_custo_manutencao"] / 100.0
+    i = params_financeiros["taxa_actualizacao"] / 100.0
+
+    invest_bat = 0
+    if cap_bat > 0:
+        invest_bat = params_financeiros["bat_fixo"] + params_financeiros["bat_euro_por_kWh"]*cap_bat
+        # taxa desconto e segundo investimento em bateria ao longo do tempo de vida
+        invest_bat = invest_bat * (1 + 1/(pow(1+i, params_financeiros["tempo_vida_bat"])))
+
+    crf = (i * pow(1.0+i, params_financeiros["tempo_vida"])) / (pow(1.0+i,params_financeiros["tempo_vida"]) - 1.0)
+    a = (invest_pv + invest_bat) * (crf + om)
+    coe = (a + (compra_rede) - (energia_injectada_rede*params_financeiros["preco_venda_rede"]))/consumo_anual
+    
+    a_bat = invest_bat * (crf + om)
+    coa = 0
+    if energia_bateria > 0:
+        coa = a_bat / energia_bateria
+
+    return coe, coa, custo_medio_compra_rede
 
 def _val(cash_flows, taxa_actualizacao):
     """ Valor actulizado liquido pelo método dos fluxo de caixa descontados.
