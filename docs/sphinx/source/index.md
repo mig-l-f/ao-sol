@@ -25,9 +25,10 @@ Ver os exemplos jupyter notebook em {ref}`Exemplos`
 ## Fontes:
 
 <a id="1">[1]</a> 
-João Carvalho. 2018
-Análise da viabilidade económica do armazenamento de energia em autoprodução.
-Tese de mestrado. FEUP
+S. Quoilin, K. Kavvadias, A. Mercier, I. Pappone, A. Zucker, 
+Quantifying self-consumption linked to solar home battery systems: statistical analysis and economic assessment, 
+Applied Energy, 2016
+Em https://doi.org/10.1016/j.apenergy.2016.08.077
 
 <a id="2">[2]</a> 
 Bloco 9 - Análise Investimentos, Universidade Evora.
@@ -45,6 +46,9 @@ Version 2.0.0
 
 <a id="5">[5]</a>
 Jensen, A., Anderson, K., Holmgren, W., Mikofski, M., Hansen, C., Boeman, L., Loonen, R. “pvlib iotools — Open-source Python functions for seamless access to solar irradiance data.” Solar Energy, 266, 112092, (2023). DOI: 10.1016/j.solener.2023.112092.
+
+<a id="6">[6]</a>
+Naldi, Claudia & Morini, Gian & Zanchini, E.. (2014). A method for the choice of the optimal balance-point temperature of air-to-water heat pumps for heating. Sustainable Cities and Society. Em https://doi.org/10.1016/j.scs.2014.02.005
 
 ```{toctree}
 :caption: 'Contents:'

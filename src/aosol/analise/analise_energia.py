@@ -45,6 +45,7 @@ def calcula_indicadores_autoconsumo(energia, pot_instalada, ef_inv, bat=None, in
 
     A partir de um dataframe com os resultados de uma simulação, calcula os
     seguintes indicadores:
+
     - iac : indice auto consumo. [%]
     - ias : indice auto suficiencia. [%]
     - ier : indice entrega a rede. [%]
@@ -55,6 +56,7 @@ def calcula_indicadores_autoconsumo(energia, pot_instalada, ef_inv, bat=None, in
     - residuo : diferenca de control entre toda energia gerada (PV+rede) e consumida (carga+inj_rede+perdas_bat+perdas_inv)
     
     Se a bateria for fornecida então calcula também os indicadores da baterias:
+
     - consumo_bateria : total de energia fornecida pela bateria. [kWh]
     - perdas_bateria : perdas de energia na conversão da bateria. [kWh]
     - num_ciclos : numero de ciclos de carregamento da bateria em 1 ano
@@ -95,10 +97,13 @@ def analisa_upac_sem_armazenamento(energia, eficiencia_inversor=1, intervalo=1):
 
     Algoritmo para autoconsumo sem armazenamento. Fonte: [1]_
     Dadas as series de:
+
     - consumo : consumo total [kWh]
     - autoproducao : producao total do sistema autoconsumo [kWh]
     - autoproducao_p90 : produção P90 da UPAC [kWh] (opcional)
+
     Calcula:
+
     - autoconsumo : quantidade produzida que é efectivamente consumida [kWh]
     - injeccao_rede : quantidade produzida que não é aproveitada [kWh]
     - consumo_rede : quantidade consumida da rede [kWh]
@@ -132,8 +137,9 @@ def analisa_upac_com_armazenamento(energia, bateria, intervalo=1, eficiencia_inv
     """ Analisa uma UPAC com armazenamento
 
     Algoritmo para autoconsumo com armazenamento [1]_, método que maximiza o auto-consumo.
-    A bateria é carregada quando produção PV > carga e enquanto não está totalmente carregada.
-    A bateria é descarregada quando produção PV < carga e enquanto não está totalmente descarregada.
+
+    - A bateria é carregada quando produção PV > carga e enquanto não está totalmente carregada.
+    - A bateria é descarregada quando produção PV < carga e enquanto não está totalmente descarregada.
     
     Parameters
     ----------
@@ -156,21 +162,18 @@ def analisa_upac_com_armazenamento(energia, bateria, intervalo=1, eficiencia_inv
     Notes
     -----
     Dadas as series de:
+
     - consumo : consumo total [kWh]
     - autoproducao : producao total do sistema autoconsumo [kWh]
+
     Calcula:
+
     - autoconsumo : energia autoconsumida (PV + bateria) [kWh]
     - injeccao_rede : energia desperdicada [kWh]
     - consumo_rede : energia consumida da rede [kWh]
     - carga_bateria : energia consumida pela bateria [kWh]
     - descarga_bateria : energia fornecida pela bateria [kWh]
     - soc : estado de carga da bateria no final to timestep [kWh]
-
-    References
-    ----------
-    .. [1] Sylvain Quoilin, Konstantinos Kavvadias, Arnaud Mercier, Irene Pappone, Andreas Zucker, 
-           Quantifying self-consumption linked to solar home battery systems: Statistical analysis and economic assessment,
-           Applied Energy, Volume 182, 2016, Pages 58-67.
     """
     pv = energia["autoproducao"].values / intervalo  # kW
     carga = energia["consumo"].values / intervalo    # kW

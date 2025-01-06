@@ -43,6 +43,7 @@ Para obter os dados de produção é necessário saber:
 ## Templates
 
 ```{nbgallery}
+./procura_upac
 ./analise_upac
 ./analise_upac_com_bateria
 ```

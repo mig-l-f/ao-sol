@@ -12,7 +12,15 @@ do sistema produtor.
 
 .. math:: VAL_n = \sum_{k=0}^{payback} \frac{CF_{(in)}(k) - CF_{(out)}(k)}{(1+TIR_n)^k} = 0
 
-Calculo do LCOE pelo método descrito no simulador NREL [3]_.
+Calculo do LCOE pelo método descrito no simulador NREL [3]_. Este método apenas considera os
+custos do sistema PV e a sua produção ao longo do tempo de vida.
+
+Custo de energia na optica do prosumidor [4]_ é diferente do LCOE da NREL na medida em que calcula o 
+custo médio do kWh consumido considerando PV, consumido da rede e da bateria se incluido e pode ser compara directmente 
+com o custo de compra à rede. Para um sistema com bateria é assumido que as mesmas terão de ser mudadas 1x ao longo do tempo de vida do projecto.
+
+References
+----------
 
 .. [1] Bloco 9 - Análise Investimentos, Universidade Evora. 
     Em https://dspace.uevora.pt/rdpc/bitstream/10174/6309/11/BLOCO9.pdf
@@ -20,6 +28,9 @@ Calculo do LCOE pelo método descrito no simulador NREL [3]_.
     UNOPAR Cient. Exatas Tecnol., Londrina, v. 11, n. 1, p. 59-63, Nov. 2012
 .. [3] SJ Andrews, B Smith, MG Deceglie, KA Horowitz, and TJ Silverman. “NREL Comparative PV LCOE Calculator.” 
     Version 2.0.0, August 2021. Em https://www.nrel.gov/pv/lcoe-calculator/documentation.html
+.. [4] S. Quoilin, K. Kavvadias, A. Mercier, I. Pappone, A. Zucker, 
+       Quantifying self-consumption linked to solar home battery systems: statistical analysis and economic assessment, 
+       Applied Energy, 2016
 """
 import pandas as pd
 import numpy as np

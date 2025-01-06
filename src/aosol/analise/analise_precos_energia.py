@@ -421,11 +421,15 @@ def identifica_periodo_tarifario_trihorario(energia, ano):
 
     Identifica e marca os periodos bihorarios na dataframe numa nova coluna 'periodo tarifario'. Os periodos
     trihorários são os seguintes:
+    
     - Hora de Inverno:
+
         - Vazio: [22:00, 08:00[
         - Cheias: [08:00, 08:30[, [10:30, 18:00[ e [20:30, 22:00[
         - Ponta: [08:30, 10:30[, [18:00, 20:30[
+
     - Hora de Verao:
+
         - Vazio: [22:00, 08:00[
         - Cheias: [08:00, 10:30[, [13:00, 19:30[ e [21:00, 22:00[
         - Ponta: [10:30, 13:00[, [19:30, 21:00[
