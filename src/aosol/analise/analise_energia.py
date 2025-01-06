@@ -1,5 +1,5 @@
 """ Módulo com as funções para efectuar a análise de energia, a partir das séries de consumo e autoprodução tanto
-para UPAC com e sem bateria.
+para UPAC com e sem bateria. Os algoritmos para análise da energia são baseados em [1]_.
 
 Contêm também as funções para calcular os indicadores de autoconsumo, produzir matrizes 12x24 e 7x12 e fazer
 gráfico de barras com os vários usos da energia e imprimir tabelas em formaro html e markdown.
@@ -23,8 +23,15 @@ Para sistemas com armazenamento:
 ------------------------------------------------------------
 carga_bateria            kWh      energia armazenada na bateria
 descarga_bateria         kWh      energia descarregada da bateria
-soc                      %        estado de carga da bateria no final to timestep
+soc                      kWh      estado de carga da bateria no final to timestep
 ======================== ======== ==========================
+
+References
+----------
+
+.. [1] S. Quoilin, K. Kavvadias, A. Mercier, I. Pappone, A. Zucker, 
+       Quantifying self-consumption linked to solar home battery systems: statistical analysis and economic assessment, 
+       Applied Energy, 2016
 """
 
 import numpy as np
@@ -33,118 +40,60 @@ from IPython.display import HTML, display
 from tabulate import tabulate
 from .indicadores_autoconsumo import indicadores_autoconsumo
 
-def calcula_indicadores_autoconsumo(energia, capacidade_instalada, calcula_p90=False):
-    """ Calcula indicadores de autoconsumo para UPAC sem bateria.
-
-    A partir de uma dataframe com as colunas para um sistema sem armazenamento, calcula
-    os seguintes indicadores de autoconsumo calculados:
-    - iac : indice auto consumo [%]
-    - ias : indice auto suficiencia [%]
-    - ier : indice entrega a rede [%]
-    - energia_autoconsumida : total energia autoconsumida [kWh]
-    - energia_rede : total energia consumida da rede [kWh]
-    - consumo_total : total energia consumida [kWh]
-
-    Parameters
-    ----------
-    energia : pandas.DataFrame
-        Series temporais energia. Colunas necessarias: consumo, autoproducao, autoconsumo, consumo_rede
-    capacidade_instalada : float
-        Capacidade instalada em kWp
-    calcula_p90: bool, default:False
-        True para calcular os indicadores para P90, False para não calcular
-
-    Returns
-    -------
-    ind : indicadores_autoconsumo
-        Indicadores de autoconsumo para P50.
-    ind_p90 : indicadores_autoconsumo
-        Indicadores de autoconsumo para P90 se calcular_p90 é True, caso contrário None.
-    """
-    # indice auto consumo
-    iac = (energia["autoconsumo"].sum() / energia["autoproducao"].sum()) * 100.0
-
-    # indice de auto suficiencia
-    ias = (energia["autoconsumo"].sum() / energia["consumo"].sum()) * 100.0
-
-    # indice entrega a rede
-    ier = 100.0 - iac
-
-    # total energia auto consumida
-    energia_autoproduzida = energia["autoproducao"].sum()
-    energia_autoconsumida = energia["autoconsumo"].sum()
-    energia_rede = energia["consumo_rede"].sum()
-    consumo_total = energia["consumo"].sum()
-
-    ia = indicadores_autoconsumo(iac, ias, ier, capacidade_instalada, energia_autoproduzida, energia_autoconsumida, energia_rede, consumo_total)
-    ia_p90 = None
-    if calcula_p90:
-        iac_p90 = (energia["autoconsumo_p90"].sum() / energia["autoproducao_p90"].sum()) * 100.0
-        ias_p90 = (energia["autoconsumo_p90"].sum() / energia["consumo"].sum()) * 100.0
-        ier_p90 = 100.0 - iac_p90
-        energia_autoproduzida_p90 = energia["autoproducao_p90"].sum()
-        energia_autoconsumida_p90 = energia["autoconsumo_p90"].sum()
-        energia_rede_p90 = energia["consumo_rede_p90"].sum()
-        ia_p90 = indicadores_autoconsumo(iac_p90, ias_p90, ier_p90, capacidade_instalada, energia_autoproduzida_p90, energia_autoconsumida_p90, energia_rede_p90, consumo_total)
-    return ia, ia_p90
-
-def calcula_indicadores_autoconsumo_com_armazenamento(energia_armaz, bat, capacidade_instalada, calcula_p90=False, bat_p90=None):
+def calcula_indicadores_autoconsumo(energia, pot_instalada, ef_inv, bat=None, intervalo=1):
     """ Calcula indicadores de autoconsumo com armazenamento.
 
-    A partir de um dataframe com as colunas para um sistema de armazenamento, 
-    calcula os indicadores de autoconsumo mais os correspondentes à bateria:
-    - horas_carga_min : numero de horas da bateria à carga minima (SOC min)
-    - perc_carga_min : percentagem do ano à carga miniam [%]
-    - horas_carga_max : numero de horas da bateria à carga máxima (SOC max)
-    - perc_carga_max : percenragem do ano à carga máxima [%]
+    A partir de um dataframe com os resultados de uma simulação, calcula os
+    seguintes indicadores:
+    - iac : indice auto consumo. [%]
+    - ias : indice auto suficiencia. [%]
+    - ier : indice entrega a rede. [%]
+    - energia_autoconsumida : total energia autoconsumida. [kWh]
+    - energia_rede : total energia consumida da rede. [kWh]
+    - consumo_total : total energia consumida. [kWh]
+    - perdas_inversor : perdas de energia na conversão do inversor. [kWh]
+    - residuo : diferenca de control entre toda energia gerada (PV+rede) e consumida (carga+inj_rede+perdas_bat+perdas_inv)
+    
+    Se a bateria for fornecida então calcula também os indicadores da baterias:
+    - consumo_bateria : total de energia fornecida pela bateria. [kWh]
+    - perdas_bateria : perdas de energia na conversão da bateria. [kWh]
     - num_ciclos : numero de ciclos de carregamento da bateria em 1 ano
-
-    Parameters
-    ----------
-    energia_armaz : pd.Dataframe
-        Dataframe de energia e armazenamento: Colunas necessarias: consumo, autoproducao, autoconsumo, consumo_rede, soc
-    bat : bateria
-        Bateria para P50
-    capacidade_instalada : float
-        Capacidade instalada.  [kWp]
-    calcula_p90 : bool, default: False
-        Se calcula indicadores para P90.
-    bat_p90 : bateria
-        Bateria para P90 necessário se calcula_p90 = True
-
-    Returns
-    -------
-    ind : indicadores de autoconsumo
-        Indicadores de autoconsumo para P50.
-    ind_p90 : indicadores de autoconsumo, optional
-        Indicadors de autoconsumo para P90 se calcular_p90 é True, caso contrário none.
     """
-    # indicadores sem armazenamento
-    sem, sem_p90 = calcula_indicadores_autoconsumo(energia_armaz, capacidade_instalada, calcula_p90)
+    total_consumo = energia["consumo"].sum()
+    total_consumo_rede = energia["consumo_rede"].sum()
+    total_injeccao_rede = energia["injeccao_rede"].sum()
+    total_autoconsumo = energia["autoconsumo"].sum()
+    total_autoproducao = energia["autoproducao"].sum()
 
-    # numero de horas à carga minima
-    n_horas_min = energia_armaz[energia_armaz['soc'] <= bat.get_soc_min()].shape[0]
-    n_horas_max = energia_armaz[energia_armaz['soc'] >= bat.get_soc_max()].shape[0]
-    n_ciclos = bat.get_ciclos_carregamento()
+    ias = (total_autoconsumo / total_consumo)*100      # %
+    iac = (total_autoconsumo / total_autoproducao)*100 # %
+    ier = 100 - iac
+    
+    com_bateria = bat is not None
+    n_ciclos = 0
+    cap_bat = 0 # kWh
+    total_descarga_bateria = 0  # kWh
+    perdas_bateria = 0 # kWh
+    if com_bateria:
+        # num ciclos
+        media_ciclos = np.sum(energia["descarga_bateria"]*intervalo)/(365*bat.capacidade_total)
+        n_ciclos = 365*media_ciclos
+        cap_bat = bat.capacidade_total
+        total_descarga_bateria = energia["descarga_bateria"].sum()
+        perdas_bateria = energia["carga_bateria"].sum() - total_descarga_bateria
 
-    ia = indicadores_autoconsumo(sem.iac, sem.ias, sem.ier, sem.capacidade_instalada, sem.energia_autoproduzida, \
-        sem.energia_autoconsumida, sem.energia_rede, sem.consumo_total, True, n_horas_min, n_horas_max, n_ciclos, bat.get_capacidade_bateria())
-    ia_p90 = None
-    if calcula_p90:
-        n_horas_min_p90 = energia_armaz[energia_armaz['soc_p90'] <= bat_p90.get_soc_min()].shape[0]
-        n_horas_max_p90 = energia_armaz[energia_armaz['soc_p90'] >= bat_p90.get_soc_max()].shape[0]
-        n_ciclos_p90 = bat_p90.get_ciclos_carregamento()
+    perdas_inversor = (total_autoproducao - perdas_bateria)*(1-ef_inv)
+    residuo = total_autoproducao + total_consumo_rede - \
+        total_injeccao_rede - perdas_inversor - perdas_bateria - total_consumo
 
-        ia_p90 = indicadores_autoconsumo(sem_p90.iac, sem_p90.ias, sem_p90.ier, sem_p90.capacidade_instalada, \
-            sem_p90.energia_autoproduzida, sem_p90.energia_autoconsumida, sem_p90.energia_rede, sem_p90.consumo_total, True, \
-            n_horas_min_p90, n_horas_max_p90, n_ciclos_p90, bat_p90.get_capacidade_bateria())
-
-    return ia, ia_p90
-
-def analisa_upac_sem_armazenamento(energia):
+    return indicadores_autoconsumo(iac, ias, ier, pot_instalada, total_autoproducao, total_autoconsumo, 
+                                   total_consumo_rede, total_injeccao_rede, total_consumo, perdas_inversor, residuo,
+                                   com_bateria, total_descarga_bateria, perdas_bateria, n_ciclos, cap_bat)
+    
+def analisa_upac_sem_armazenamento(energia, eficiencia_inversor=1, intervalo=1):
     """ Analisa uma UPAC sem armazenamento.
 
-    Algoritmo para autoconsumo sem armazenamento. Fonte: J Carvalho (2018) Armazenamento em Auto Consumo
+    Algoritmo para autoconsumo sem armazenamento. Fonte: [1]_
     Dadas as series de:
     - consumo : consumo total [kWh]
     - autoproducao : producao total do sistema autoconsumo [kWh]
@@ -153,75 +102,59 @@ def analisa_upac_sem_armazenamento(energia):
     - autoconsumo : quantidade produzida que é efectivamente consumida [kWh]
     - injeccao_rede : quantidade produzida que não é aproveitada [kWh]
     - consumo_rede : quantidade consumida da rede [kWh]
-    Se autoproducao_p90 existir, calcula tb
-    - autoconsumo_p90 : quantidade produzida que é efectivamente consumida [kWh]
-    - injeccao_rede_p90 : quantidade produzida que não é aproveitada [kWh]
-    - consumo_rede_90 : quantidade consumida da rede [kWh]
 
     Parameters
     ----------
     energia : pd.Dataframe
         Dataframe com as series de consumo e autoproducao.
+    eficiencia_inversor : float, default: 1
+        Eficiencia do inversor. Valor entre 0 e 1.
+    intervalo : float, default: 1
+        Intervalo temporal entre cada registo. [h]
 
     Returns
     -------
     pd.Dataframe
         A data frame original com as series adicionadas de autoconsumo, injeccao_rede e consumo_rede.
     """
-    # Algoritmo:
-    #     Autoconsumo:
-    #     If (consumo > autoproducao)
-    #     {
-    #         autoconsumo = autoproducao
-    #     }
-    #     Else
-    #     {
-    #         autoconsumo = consumo 
-    #     }
-    #
-    #     Injeccao_rede:
-    #     If (autoproducao - consumo > 0)
-    #     {
-    #         injeccao_rede = autoproducao - consumo
-    #     }
-    #     Else
-    #     {
-    #         injeccao_rede = 0
-    #     }
-    #
-    #     Consumo_rede:
-    #     If (consumo - autoproducao > 0)
-    #     {
-    #         consumo_rede = consumo - autoproducao
-    #     }
-    #     Else
-    #     {
-    #         consumo_rede = 0
-    #     }
-    col_autoprod = 'autoproducao'
-    col_autoprod_p90 = 'autoproducao_p90'
-    calcula_p90 = (col_autoprod_p90 in energia.columns)
+    pv = energia["autoproducao"].values / intervalo  # kW
+    carga = energia["consumo"].values / intervalo    # kW
 
-    # Auto consumo
-    energia['autoconsumo'] = np.where(energia['consumo'] > energia[col_autoprod], energia[col_autoprod], energia['consumo'])
+    energia_bidireccional_rede = (carga - pv*eficiencia_inversor)*intervalo  # kWh
 
-    # Injeccao na rede, energia nao utilizada
-    energia['injeccao_rede'] = np.where(energia[col_autoprod] - energia['consumo'] > 0, energia[col_autoprod] - energia['consumo'], 0.0)
-
-    # Consumo rede
-    energia['consumo_rede'] = np.where(energia['consumo'] - energia[col_autoprod] > 0, energia['consumo'] - energia[col_autoprod], 0.0)
-
-    if calcula_p90:
-        energia['autoconsumo_p90'] = np.where(energia['consumo'] > energia[col_autoprod_p90], energia[col_autoprod_p90], energia['consumo'])
-        energia['injeccao_rede_p90'] = np.where(energia[col_autoprod_p90] - energia['consumo'] > 0, energia[col_autoprod_p90] - energia['consumo'], 0.0)    
-        energia['consumo_rede_p90'] = np.where(energia['consumo'] - energia[col_autoprod_p90] > 0, energia['consumo'] - energia[col_autoprod_p90], 0.0)
+    energia["consumo_rede"] = np.maximum(0, energia_bidireccional_rede)
+    energia["injeccao_rede"] = np.maximum(0, -energia_bidireccional_rede)
+    energia["autoconsumo"] = energia["consumo"] - energia["consumo_rede"]
 
     return energia
 
-def analisa_upac_com_armazenamento(energia, bateria, calcula_p90=False, bateria_p90=None):
-    """ Analisa uma UPAC com armazenamento.
+def analisa_upac_com_armazenamento(energia, bateria, intervalo=1, eficiencia_inversor=1, soc_0=None):
+    """ Analisa uma UPAC com armazenamento
 
-    Algoritmo para autoconsumo com armazenamento. Fonte: J Carvalho (2018) Armazenamento em Auto Consumo
+    Algoritmo para autoconsumo com armazenamento [1]_, método que maximiza o auto-consumo.
+    A bateria é carregada quando produção PV > carga e enquanto não está totalmente carregada.
+    A bateria é descarregada quando produção PV < carga e enquanto não está totalmente descarregada.
+    
+    Parameters
+    ----------
+    energia : pd.DataFrame
+        Data frame com as series consumo e autoproducao.
+    bateria : bateria
+        Objecto bateria com capacidade e soc_min e soc_max
+    eficiencia_inversor : float, default: 1
+        Eficiencia inversor, valores entre [0, 1].
+    soc_0 : float, default: None
+        Estado de carga da bateria no 1o instante. Se None então soc_0 é igual 50%.
+    intervalo : float, default: 1
+        Intervalo temporal entre cada registo. [hr]
+
+    Returns
+    -------
+    pd.DataFrame
+        Data frame com as series calculadas.
+
+    Notes
+    -----
     Dadas as series de:
     - consumo : consumo total [kWh]
     - autoproducao : producao total do sistema autoconsumo [kWh]
@@ -229,144 +162,49 @@ def analisa_upac_com_armazenamento(energia, bateria, calcula_p90=False, bateria_
     - autoconsumo : energia autoconsumida (PV + bateria) [kWh]
     - injeccao_rede : energia desperdicada [kWh]
     - consumo_rede : energia consumida da rede [kWh]
-    - carga_bateria : energia armazenada na bateria [kWh]
-    - descarga_bateria : energia descarregada da bateria [kWh]
-    - soc : estado de carga da bateria no final to timestep [%]
+    - carga_bateria : energia consumida pela bateria [kWh]
+    - descarga_bateria : energia fornecida pela bateria [kWh]
+    - soc : estado de carga da bateria no final to timestep [kWh]
 
-    Parameters
+    References
     ----------
-    energia : pd.DataFrame
-        Data frame com as series consumo e autoproducao.
-    bateria : bateria
-        Objecto bateria com capacidade e soc_min e soc_max
-    calcula_p90 : bool, default: False
-        Se devemos calcular series P90, necessita coluna autoproducao_p90
-    bateria_p90 : bateria, default: None
-        Objecto bateria com capacidade e soc_min e soc_max para calculos P90. Tem de ser especificado se calcula_p90 = True
-
-    Returns
-    -------
-    pd.DataFrame
-        Data frame com as series calculadas.
+    .. [1] Sylvain Quoilin, Konstantinos Kavvadias, Arnaud Mercier, Irene Pappone, Andreas Zucker, 
+           Quantifying self-consumption linked to solar home battery systems: Statistical analysis and economic assessment,
+           Applied Energy, Volume 182, 2016, Pages 58-67.
     """
-    # Algoritmo:
-    # If (autoproducao > consumo)
-    # {
-    #     excesso = autoproducao - consumo
-    #     if (soc < SOC_max)
-    #     {
-    #         carga_bateria = carrega_bateria(excesso)
-    #         if (excesso - carga_bateria > 0)
-    #         {
-    #             injeccao_rede = excesso - carga_bateria
-    #         }
-    #     }
-    #     else
-    #     {
-    #         carga_bateria = 0
-    #         injeccao_rede = excesso
-    #     }
-    # }
-    # Else
-    # {
-    #     deficit = consumo - autoproducao
-    #     if (soc > SOC_min)
-    #     {
-    #         descarga_bateria = descarrega_bateria(deficit)
-    #         if (deficit - descarga_bateria > 0)
-    #         {
-    #             consumo_rede = deficit - descarga_bateria
-    #         }
-    #     }
-    #     else
-    #     {
-    #         descarga_bateria = 0
-    #         consumo_rede = deficit
-    #     }
-    # }
-    #
-    # Autoconsumo:
-    # If (consumo > autoproducao)
-    # {
-    #     autoconsumo = autoproducao + descarga_bateria
-    # }
-    # Else
-    # {
-    #     autoconsumo = consumo
-    # }
+    pv = energia["autoproducao"].values / intervalo  # kW
+    carga = energia["consumo"].values / intervalo    # kW
+
+    n = len(pv)
+    soc = np.zeros(n)
+    energia_bidireccional_rede = np.zeros(n)  # < 0 : energia injectada, > 0 energia consumida rede
+    carga_bateria = np.zeros(n)    # fornecimento bateria
+    descarga_bateria = np.zeros(n) # consumo bateria
+
+    if soc_0 is None:
+        soc_0 = bateria.profundidade_descarga / 2
+    demanda_dc = carga/eficiencia_inversor - pv  # kW
+
+    for i in range(0, n):
+        soc_anterior = soc_0
+        if i > 0:
+            soc_anterior = soc[i-1]
+
+        soc_actual, pot_carga, pot_descarga = bateria.calcula_energia_maximiza_autoconsumo(soc_anterior, demanda_dc[i], intervalo)
+
+        soc[i] = soc_actual # kWh
+        energia_bidireccional_rede[i] = (carga[i] - (pv[i] + pot_descarga - pot_carga)*eficiencia_inversor)*intervalo  # kWh
+        descarga_bateria[i] = pot_descarga*intervalo # kWh
+        carga_bateria[i] = pot_carga*intervalo       # kWh
+
+    energia["consumo_rede"] = np.maximum(0, energia_bidireccional_rede)
+    energia["injeccao_rede"] = np.maximum(0, -energia_bidireccional_rede)
+    energia["autoconsumo"] = energia["consumo"] - energia["consumo_rede"]
+    energia["carga_bateria"] = carga_bateria
+    energia["descarga_bateria"] = descarga_bateria
+    energia["soc"] = soc
     
-    for index, row in energia.iterrows():
-        autoconsumo, consumo_pv, injeccao_rede, consumo_rede, \
-        carga_bateria, descarga_bateria, soc_bateria = _calcula_timestep_upac_com_armazenamento(row, 'consumo', 'autoproducao', bateria)
-
-        # guardar na dataframe
-        energia.loc[index, 'autoconsumo'] = autoconsumo
-        energia.loc[index, 'consumo_pv'] = consumo_pv
-        energia.loc[index, 'injeccao_rede'] = injeccao_rede
-        energia.loc[index, 'consumo_rede'] = consumo_rede
-        energia.loc[index, 'carga_bateria'] = carga_bateria
-        energia.loc[index, 'descarga_bateria'] = descarga_bateria
-        energia.loc[index, 'soc'] = soc_bateria
-
-        if calcula_p90:
-            autoconsumo_p90, consumo_pv_p90, injeccao_rede_p90, consumo_rede_p90, \
-            carga_bateria_p90, descarga_bateria_p90, soc_bateria_p90 = _calcula_timestep_upac_com_armazenamento(row, 'consumo', 'autoproducao_p90', bateria_p90)
-
-            # guardar na dataframe
-            energia.loc[index, 'autoconsumo_p90'] = autoconsumo_p90
-            energia.loc[index, 'consumo_pv_p90'] = consumo_pv_p90
-            energia.loc[index, 'injeccao_rede_p90'] = injeccao_rede_p90
-            energia.loc[index, 'consumo_rede_p90'] = consumo_rede_p90
-            energia.loc[index, 'carga_bateria_p90'] = carga_bateria_p90
-            energia.loc[index, 'descarga_bateria_p90'] = descarga_bateria_p90
-            energia.loc[index, 'soc_p90'] = soc_bateria_p90
-
     return energia
-
-def _calcula_timestep_upac_com_armazenamento(row, col_consumo, col_autoproducao, bateria):
-    """ Calcula comportamento bateria em um timestep.
-    """
-    descarga_bateria = 0
-    carga_bateria = 0
-    soc_bateria = bateria.get_soc()
-    injeccao_rede = 0
-    consumo_rede = 0
-    # calcula comportamento bateria
-    if (row[col_autoproducao] > row[col_consumo]):
-        excesso = row[col_autoproducao] - row[col_consumo]
-        if (soc_bateria < bateria.get_soc_max()):
-            carga_bateria = bateria.carrega_bateria(excesso)
-            soc_bateria = bateria.get_soc()
-            # conseguimos guardar tudo na bateria ou enviamos para a rede            
-            if (carga_bateria - excesso > 0):
-                injeccao_rede = carga_bateria - excesso
-        else:
-            carga_bateria = 0
-            injeccao_rede = excesso
-    else: # caso descarga bateria
-        deficit = row[col_consumo] - row[col_autoproducao]
-        #
-        consumo_rede = 0
-        soc_bateria = bateria.get_soc()
-        if (soc_bateria > bateria.get_soc_min()):
-            descarga_bateria = bateria.descarrega_bateria(deficit)
-            soc_bateria = bateria.get_soc()
-            if (deficit - descarga_bateria > 0):
-                consumo_rede = deficit - descarga_bateria
-        else:
-            descarga_bateria = 0
-            consumo_rede = deficit
-    # calcula autoconsumo
-    autoconsumo = 0
-    consumo_pv = 0
-    if (row[col_consumo] > row[col_autoproducao]):
-        consumo_pv = row[col_autoproducao]
-        autoconsumo = row[col_autoproducao] + descarga_bateria
-    else:
-        consumo_pv = row[col_consumo]
-        autoconsumo = row[col_consumo]
-    
-    return autoconsumo, consumo_pv, injeccao_rede, consumo_rede, carga_bateria, descarga_bateria, soc_bateria
 
 def calcula_12x24(energia, col):
     """ Calcula matriz 12 meses x 24 horas.
@@ -491,144 +329,3 @@ def plot_energia_mensal_bars(ax, energia_mensal, consumo_mensal, producao_mensal
     ax.legend(bbox_to_anchor =(0.5,-0.27), loc='lower center')
     ax.set_ylabel('Enegia [kWh]')
     ax.set_xlabel('mes')
-
-def print_tabela_indicadores_html(ia, ia_p90 = None):
-    """ Print tabela de indicadores de autoconsumo em formato html. Se especificado inclui coluna com P90.
-
-    Parameters
-    ----------
-    ia : indicadores_autoconsumo
-        Indicadores P50
-    ia_p90 : indicadores_autoconsumo, default: None
-        Indicadores P90, se especificado é adicionada coluna
-    """
-    print_p90 = (ia_p90 is not None)
-    tabela = '<table style="font-size:16px">'
-    tabela +='<tr>'
-    tabela +='<td></td><td>P50</td>'
-    if print_p90:
-        tabela +='<td>P90</td>'    
-    tabela +='</tr>'
-    tabela +='<tr>'
-    tabela +='<td>Potencia Instalada</td><td>{:.2f} kW</td>'.format(ia.capacidade_instalada)
-    if print_p90:
-        tabela +='<td>{:.2f} kW</td>'.format(ia_p90.capacidade_instalada)
-    tabela +='</tr>'
-    tabela +='<tr></tr>'
-    tabela +='<tr>'
-    tabela +='<td>Energia Autoproduzida [kWh]</td><td>{:.1f}</td>'.format(ia.energia_autoproduzida)
-    if print_p90:
-        tabela +='<td>{:.1f}</td>'.format(ia_p90.energia_autoproduzida)
-    tabela +='</tr>'
-    tabela +='<tr>'
-    tabela +='<td>Energia Autoconsumida [kWh]</td><td>{:.1f}</td>'.format(ia.energia_autoconsumida)
-    if print_p90:
-        tabela +='<td>{:.1f}</td>'.format(ia_p90.energia_autoconsumida)
-    tabela +='</tr>'
-    tabela +='<tr>'
-    tabela +='<td>Energia consumida rede [kWh]</td><td>{:.1f}</td>'.format(ia.energia_rede)
-    if print_p90:
-        tabela +='<td>{:.1f}</td>'.format(ia_p90.energia_rede)
-    tabela +='</tr>'
-    tabela +='<tr>'
-    tabela +='<td>Energia consumida [kWh]</td><td>{:.1f}</td>'.format(ia.consumo_total)
-    if print_p90:
-        tabela +='<td>{:.1f}</td>'.format(ia_p90.consumo_total)
-    tabela +='</tr>'
-    tabela +='<tr></tr>'
-    tabela +='<tr>'
-    tabela +='<td>Numero de horas equivalentes [h/ano]</td><td>{:.1f}</td>'.format(ia.horas_equivalentes)
-    if print_p90:
-        tabela +='<td>{:.1f}</td>'.format(ia_p90.horas_equivalentes)
-    tabela +='</tr>'
-    tabela +='<tr>'
-    tabela +='<td>IAS: Contributo PV [%]</td><td>{:.1f}</td>'.format(ia.ias)
-    if print_p90:
-        tabela +='<td>{:.1f}</td>'.format(ia_p90.ias)
-    tabela +='</tr>'
-    tabela +='<tr>'
-    tabela +='<td>IAC: Indice Auto consumo [%]</td><td>{:.1f}</td>'.format(ia.iac)
-    if print_p90:
-        tabela +='<td>{:.1f}</td>'.format(ia_p90.iac)
-    tabela +='</tr>'
-    tabela +='<tr>'
-    tabela +='<td>IER: Producao PV desperdicada [%]</td><td>{:.1f}</td>'.format(ia.ier)
-    if print_p90:
-        tabela +='<td>{:.1f}</td>'.format(ia_p90.ier)
-    tabela +='</tr>'
-    if (ia.com_armazenamento):
-        tabela += '<tr><td>Bateria:</td><td></td><td></td></tr>'
-        tabela += '<tr>'
-        tabela += '<td>Capacidade [kWh]</td><td>{:.2f}</td>'.format(ia.capacidade_bateria)
-        if print_p90:
-            tabela += '<td>{:.2f}</td>'.format(ia_p90.capacidade_bateria)
-        tabela += '</tr>'
-        tabela += '<tr>'
-        tabela += '<td>Em carga minima</td><td>{:.1f} hr ({:.2f} %)</td>'.format(ia.num_horas_carga_min, ia.perc_horas_carga_min)
-        if print_p90:
-            tabela += '<td>{:.1f} hr ({:.2f} %)</td>'.format(ia_p90.num_horas_carga_min, ia_p90.perc_horas_carga_min)
-        tabela += '</tr>'
-        tabela += '<tr>'
-        tabela += '<td>Em carga máxima</td><td>{:.1f} hr ({:.2f} %)</td>'.format(ia.num_horas_carga_max, ia.perc_horas_carga_max)
-        if print_p90:
-            tabela += '<td>{:.1f} hr ({:.2f} %)</td>'.format(ia_p90.num_horas_carga_max, ia_p90.perc_horas_carga_max)
-        tabela += '</tr>'
-        tabela += '<tr>'
-        tabela += '<td>Ciclos da bateria</td><td>{}</td>'.format(ia.num_ciclos_bateria)
-        if print_p90:
-            tabela += '<td>{}</td>'.format(ia_p90.num_ciclos_bateria)
-        tabela += '</tr>'
-    tabela += '</table>'
-    display(HTML(tabela))
-
-def print_tabela_indicadores_markdown(ia, ia_p90=None):
-    """ Print tabela de indicadores de autoconsumo em formato markdown. Se especificado inclui coluna com P90.
-
-    Parameters
-    ----------
-    ia : indicadores_autoconsumo
-        Indicadores P50.
-    ia_p90 : indicadores_autoconsumo, default: None
-        Indicadores P90, se especificado é adicionada coluna.
-    """
-    print_p90 = (ia_p90 is not None)
-    headers = ['', 'P50']
-    tabela = [
-        ['Potencia Instalada [kW]', '{:.2f}'.format(ia.capacidade_instalada)],
-        ['Energia Autoproduzida [kWh]', '{:.1f}'.format(ia.energia_autoproduzida)],
-        ['Energia Autoconsumida [kWh]', '{:.1f}'.format(ia.energia_autoconsumida)],
-        ['Energia consumida rede [kWh]', '{:.1f}'.format(ia.energia_rede)],
-        ['Energia consumida [kWh]', '{:.1f}'.format(ia.consumo_total)],      
-        ['Numero de horas equivalentes [h/ano]', '{:.1f}'.format(ia.horas_equivalentes)],
-        ['IAS: Contributo PV [%]', '{:.1f}'.format(ia.ias)],
-        ['IAC: Indice Auto consumo [%]', '{:.1f}'.format(ia.iac)],
-        ['IER: Producao PV desperdicada [%]', '{:.1f}'.format(ia.ier)]
-    ]
-    if print_p90:
-        headers.append('P90')
-        tabela[0].append('{:.2f}'.format(ia_p90.capacidade_instalada))
-        tabela[1].append('{:.1f}'.format(ia_p90.energia_autoproduzida))
-        tabela[2].append('{:.1f}'.format(ia_p90.energia_autoconsumida))
-        tabela[3].append('{:.1f}'.format(ia_p90.energia_rede))
-        tabela[4].append('{:.1f}'.format(ia_p90.consumo_total))
-        tabela[5].append('{:.1f}'.format(ia_p90.horas_equivalentes))
-        tabela[6].append('{:.1f}'.format(ia_p90.ias))
-        tabela[7].append('{:.1f}'.format(ia_p90.iac))
-        tabela[8].append('{:.1f}'.format(ia_p90.ier))
-    print(tabulate(tabela, tablefmt="github", headers=headers))
-
-    if (ia.com_armazenamento):
-        headers = ['Bateria:','P50']
-        bateria = [
-            ['Capacidade [kWh]', '{:.2f}'.format(ia.capacidade_bateria)],
-            ['Em carga minima','{:.1f} hr ({:.2f} %)'.format(ia.num_horas_carga_min, ia.perc_horas_carga_min)],
-            ['Em carga máxima','{:.1f} hr ({:.2f} %)'.format(ia.num_horas_carga_max, ia.perc_horas_carga_max)],
-            ['Ciclos da bateria','{}'.format(ia.num_ciclos_bateria)]
-        ]
-        if print_p90:
-            headers.append('P90')
-            bateria[0].append('{:.2f}'.format(ia_p90.capacidade_bateria))
-            bateria[1].append('{:.1f} hr ({:.2f} %)'.format(ia_p90.num_horas_carga_min, ia_p90.perc_horas_carga_min))
-            bateria[2].append('{:.1f} hr ({:.2f} %)'.format(ia_p90.num_horas_carga_max, ia_p90.perc_horas_carga_max))
-            bateria[3].append('{}'.format(ia_p90.num_ciclos_bateria))
-        print(tabulate(bateria, tablefmt="github", headers=headers))

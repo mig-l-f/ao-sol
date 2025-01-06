@@ -355,13 +355,10 @@ def calcula_energia_mensal_tarifario_bihorario(energia, col):
         Dataframe com serie mensal de consumo em colunas vazio e fora_vazio.
     """
     energia_df = energia.copy()
-    # Hora legal inverno/verao:
-    #  Vazio : 22:00 as 08:00
-    #  Fora Vazio : 08:00 as 22:00
-    bins = [0, 8, 22, 24]
-    energia_df['bins'] = pd.cut(energia_df.index.hour, bins, labels=[1, 2, 3], right=False)
-    consumo_vazio = energia_df[(energia_df['bins'] == 1) | (energia_df['bins'] == 3)][col].resample('M').sum().to_frame('vazio')
-    consumo_mensal = energia_df[energia_df['bins']==2][col].resample('M').sum().to_frame('fora_vazio')
+
+    energia_df = identifica_periodo_tarifario_bihorario(energia_df)
+    consumo_vazio = energia_df.loc[energia_df['periodo tarifario']=='vazio', col].resample('M').sum().to_frame('vazio')
+    consumo_mensal = energia_df.loc[energia_df['periodo tarifario']=='fora vazio', col].resample('M').sum().to_frame('fora_vazio')
     consumo_mensal = consumo_mensal.join(consumo_vazio, how="outer")
     return consumo_mensal
 
@@ -384,6 +381,68 @@ def calcula_energia_mensal_tarifario_trihorario(energia, col, ano):
         Dataframe com serie mensal de consumo em colunas 'ponta', 'cheia' e 'vazio'.
     """
     energia_df = energia.copy()
+    energia_df = identifica_periodo_tarifario_trihorario(energia_df, ano)
+
+    # calcular valores mensais
+    consumo_vazio = energia_df.loc[(energia_df['periodo tarifario'] == 'vazio'), col].resample('M').sum().to_frame('vazio')
+    consumo_cheia = energia_df.loc[(energia_df['periodo tarifario'] == 'cheia'), col].resample('M').sum().to_frame('cheia')
+    consumo_mensal = energia_df.loc[(energia_df['periodo tarifario'] == 'ponta'), col].resample('M').sum().to_frame('ponta')
+    consumo_mensal = consumo_mensal.join(consumo_cheia, how="outer")
+    consumo_mensal = consumo_mensal.join(consumo_vazio, how="outer")
+    return consumo_mensal
+    
+def identifica_periodo_tarifario_bihorario(energia):
+    """ Identifica os periodos bihorarios na dataframe.
+
+    Identifica e marca os periodos bihorarios na dataframe numa nova coluna 'periodo tarifario'. Os periodos
+    bihorários na hora legal de inverno/verão são:
+    - vazio: 22:00 ás 08:00
+    - fora vazio: 08:00 ás 22:00 
+
+    Parameters
+    ----------
+    energia: pd.Dataframe
+        Dataframe com as horas no indice.
+
+    Returns
+    -------
+    energia : pd.Dataframe
+        A dataframe original com nova columa 'periodo tarifario' identificando periodos:'vazio' e 'fora vazio'
+    """
+    bins = [0, 8, 22, 24]
+    energia['bins'] = pd.cut(energia.index.hour, bins, labels=[1, 2, 3], right=False)
+    energia['periodo tarifario'] = 'fora vazio'
+    energia.loc[(energia['bins'] == 1) | (energia['bins'] == 3),'periodo tarifario'] = 'vazio'
+    energia = energia.drop('bins', axis=1)
+    return energia
+    
+def identifica_periodo_tarifario_trihorario(energia, ano):
+    """ Identifica os periodos trihorarios na dataframe.
+
+    Identifica e marca os periodos bihorarios na dataframe numa nova coluna 'periodo tarifario'. Os periodos
+    trihorários são os seguintes:
+    - Hora de Inverno:
+        - Vazio: [22:00, 08:00[
+        - Cheias: [08:00, 08:30[, [10:30, 18:00[ e [20:30, 22:00[
+        - Ponta: [08:30, 10:30[, [18:00, 20:30[
+    - Hora de Verao:
+        - Vazio: [22:00, 08:00[
+        - Cheias: [08:00, 10:30[, [13:00, 19:30[ e [21:00, 22:00[
+        - Ponta: [10:30, 13:00[, [19:30, 21:00[
+
+    Parameters
+    ----------
+    energia: pd.DataFrame
+        Dataframe com horas no indice.
+    ano: int
+        Ano a que diz respeito o cálculo.
+
+    Returns
+    -------
+    energia: pd.Dataframe
+        Dataframe original com coluna 'periodo tarifario' identificando periodos: 'vazio', 'cheia' e 'ponta'.
+    """
+    # Periodos e respectivos bins
     # Hora de Inverno:
     #  Vazio: [22:00, 08:00[ (1, 7)
     #  Cheias: [08:00, 08:30[ (2), [10:30, 18:00[ (4) e [20:30, 22:00[ (6)
@@ -392,34 +451,32 @@ def calcula_energia_mensal_tarifario_trihorario(energia, col, ano):
     #  Vazio: [22:00, 08:00[ (1, 7)
     #  Cheias: [08:00, 10:30[ (2), [13:00, 19:30[ (4) e [21:00, 22:00[ (6)
     #  Ponta: [10:30, 13:00[ (3), [19:30, 21:00[ (5)
-    
-    # verifica hora legal
+        # verifica hora legal
     dom_mar, dom_out = datas_horario_legal(ano)   
     bins_hora_legal = [0, dom_mar.timetuple().tm_yday, dom_out.timetuple().tm_yday, 367]
     # inverno (1, 3), verao 2
     labels_hora_legal = [1, 2, 3]
-    energia_df['hora_legal'] = pd.cut(energia_df.index.dayofyear, bins_hora_legal, labels=labels_hora_legal, right=False)
+    energia['hora_legal'] = pd.cut(energia.index.dayofyear, bins_hora_legal, labels=labels_hora_legal, right=False)
 
     # inverno
     # bins: 1 = vazio, 2 = cheia, 3 = ponta, 4 = cheia, 5 = ponta, 6 = cheia, 7 = vazio
     bins_inv = [0, 8, 8.5, 10.5, 18, 20.5, 22, 24]
-    df_inv = energia_df[(energia_df['hora_legal'] == 1) | (energia_df['hora_legal'] == 3)]
+    df_inv = energia[(energia['hora_legal'] == 1) | (energia['hora_legal'] == 3)]
     df_inv['bins'] = pd.cut(df_inv.index.hour + df_inv.index.minute / 60, bins_inv, labels=[1, 2, 3, 4, 5, 6, 7], right=False)
     
     # verao
     bins_ver = [0, 8, 10.5, 13, 19.5, 21, 22, 24]
-    df_ver = energia_df[(energia_df['hora_legal'] == 2)]
+    df_ver = energia[(energia['hora_legal'] == 2)]
     df_ver['bins'] = pd.cut(df_ver.index.hour + df_ver.index.minute / 60, bins_ver, labels=[1, 2, 3, 4, 5, 6, 7], right=False)
 
     # juntar periodo inverno e verao e fazer merge da coluna bin na df com energia
     df_inv_ver = pd.concat([df_inv, df_ver])
-    energia_df = energia_df.merge(df_inv_ver['bins'],how='inner',left_index=True, right_index=True, sort=True)
+    energia = energia.merge(df_inv_ver['bins'],how='inner',left_index=True, right_index=True, sort=True)
 
-    # calcular valores mensais
-    consumo_vazio = energia_df[(energia_df['bins'] == 1) | (energia_df['bins'] == 7)][col].resample('M').sum().to_frame('vazio')
-    consumo_cheia = energia_df[(energia_df['bins'] == 2) | (energia_df['bins'] == 4) | (energia_df['bins'] == 6)][col].resample('M').sum().to_frame('cheia')
-    consumo_mensal = energia_df[(energia_df['bins'] == 3) | (energia_df['bins'] == 5)][col].resample('M').sum().to_frame('ponta')
-    consumo_mensal = consumo_mensal.join(consumo_cheia, how="outer")
-    consumo_mensal = consumo_mensal.join(consumo_vazio, how="outer")
-    return consumo_mensal
-    
+    # marcar todos como vazio
+    energia['periodo tarifario'] = 'vazio'
+    # alterar a ponta e cheia
+    energia.loc[(energia['bins'] == 2) | (energia['bins'] == 4) | (energia['bins'] == 6), 'periodo tarifario'] = 'cheia'
+    energia.loc[(energia['bins'] == 3) | (energia['bins'] == 5), 'periodo tarifario'] = 'ponta'
+
+    return energia

@@ -11,6 +11,9 @@ ier                    %        Indice entrega a rede [%]. Quanta da energia pro
 energia_autoconsumida  kWh      Total energia autoconsumida.
 energia_rede           kWh      Total energia consumida da rede.
 consumo_total          kWh      Total energia consumida.
+injeccao_rede          kWh      Total energia injectada na rede.
+perdas_inversor        kWh      Total energia perdida na conversão do inversor.
+residuo                kWh      Residuo entre energia gerada (autoproducao+consumo_rede) e consumida (injeccao_rede+perdas_inversor+perdas_bateria+consumo).
 ====================== ======== ===========
 
 Adicionalmente, sistimas com bateria têm os seguintes indicadores:
@@ -18,11 +21,9 @@ Adicionalmente, sistimas com bateria têm os seguintes indicadores:
 ====================== ======== ===========
 Indicadores            Unidade  Descrição
 ====================== ======== ===========
-horas_carga_min        h        Número de horas da bateria à carga minima (SOC min).
-perc_carga_min         %        Percentagem do ano à carga miniama.
-horas_carga_max        h        Número de horas da bateria à carga máxima (SOC max).
-perc_carga_max         %        Percenragem do ano à carga máxima.
-num_ciclos             -        Número de ciclos de carregamento da bateria em 1 ano.ß
+fornecido_bateria      kWh      Total de energia fornecida pela bateria.
+perdas_bateria         kWh      Total de energia perdida na conversão da bateria.
+num_ciclos             -        Número de ciclos de carregamento da bateria em 1 ano.
 ====================== ======== ===========
 """
 from IPython.display import HTML, display
@@ -32,7 +33,9 @@ import pandas as pd
 class indicadores_autoconsumo:
     """ Classe que contêm os indicadores de autoconsumo.
     """
-    def __init__(self, iac, ias, ier, capacidade_instalada, energia_autoproduzida, energia_autoconsumida, energia_rede, consumo_total, armazenamento=False, horas_carga_min=0, horas_carga_max=0, num_ciclos_bateria=0, capacidade_bateria=0):
+    def __init__(self, iac, ias, ier, capacidade_instalada, energia_autoproduzida, energia_autoconsumida, energia_rede, 
+                 energia_injectada_rede, consumo_total, perdas_inversor, residuo,
+                 armazenamento=False, fornecido_bateria=0, perdas_bateria=0, num_ciclos_bateria=0, capacidade_bateria=0):
         self._iac = iac
         self._ias = ias
         self._ier = ier
@@ -40,10 +43,13 @@ class indicadores_autoconsumo:
         self._energia_autoproduzida = energia_autoproduzida
         self._energia_autoconsumida = energia_autoconsumida
         self._energia_rede = energia_rede
+        self._energia_injectada_rede = energia_injectada_rede
         self._consumo_total = consumo_total
+        self._perdas_inversor = perdas_inversor
+        self._residuo = residuo
         self._com_armazenamento = armazenamento
-        self._horas_carga_min = horas_carga_min
-        self._horas_carga_max = horas_carga_max
+        self._fornecido_bateria = fornecido_bateria
+        self._perdas_bateria = perdas_bateria
         self._n_ciclos_bat = num_ciclos_bateria
         self._capacidade_bateria = capacidade_bateria
 
@@ -96,10 +102,22 @@ class indicadores_autoconsumo:
         return self._energia_rede
 
     @property
+    def energia_injectada_rede(self):
+        """ Energia injectada na rede em kWh
+        """
+        return self._energia_injectada_rede
+
+    @property
     def consumo_total(self):
         """ Total de energia consumida em kWh
         """
         return self._consumo_total
+
+    @property
+    def energia_perdida_inversor(self):
+        """ Energia perdida na conversão no inversor em kWh.
+        """
+        return self._perdas_inversor
 
     @property
     def com_armazenamento(self):
@@ -108,28 +126,16 @@ class indicadores_autoconsumo:
         return self._com_armazenamento
 
     @property
-    def num_horas_carga_min(self):
-        """ Numero de horas da bateria à carga minima (SOC min)
+    def energia_fornecida_bateria(self):
+        """ Energia fornecida pela bateria em kWh
         """
-        return self._horas_carga_min
+        return self._fornecido_bateria
 
     @property
-    def perc_horas_carga_min(self):
-        """ Percentagem do ano da bateria em carga mínima [%]
+    def energia_perdida_bateria(self):
+        """ Energia perdida na conversão na bateria em kWh.
         """
-        return (self._horas_carga_min / 8760) * 100
-
-    @property
-    def num_horas_carga_max(self):
-        """ Numero de horas da bateria à carga máxima (SOC max)
-        """
-        return self._horas_carga_max
-
-    @property
-    def perc_horas_carga_max(self):
-        """ Percentagem do ano da bateria em carga máxima [%]
-        """
-        return (self._horas_carga_max / 8760) * 100
+        return self._perdas_bateria
 
     @property
     def num_ciclos_bateria(self):
@@ -149,75 +155,39 @@ class indicadores_autoconsumo:
         """
         return self._capacidade_bateria
 
-    def to_frame(self):
-        """ Dataframe com indicadores
+    def to_frame(self, label="indicadores"):
+        """ Dataframe com indicadores.
         """
-        ind = pd.DataFrame({
-            "quant": ["Potencia instalada [kW]", "Energia Autoproduzida [kWh]", "Energia Autoconsumida [kWh]", \
-                            "Energia consumida rede [kWh]", "Energia consumida [kWh]", "Numero de horas equivalentes [h/ano]", \
-                            "IAS: Contributo PV [%]", "IAC: Indice Auto consumo [%]", "IER: Producao PV desperdicada [%]"],
-            "indicadores": [self._capacidade_instalada, self._energia_autoproduzida, self._energia_autoconsumida,\
-                            self._energia_rede, self._consumo_total, self.horas_equivalentes,\
-                            self._ias, self._iac, self._ier]
-        })
-        if (self.com_armazenamento):
-            ind = pd.concat([ind, pd.DataFrame({
-                "quant": ["Bateria:", "Capacidade bateria [kWh]", "Em carga minima [hr]", "Em carga minima [%]", \
-                          "Em carga máxima [hr]", "Em carga máxima [%]", "Ciclos da bateria"],
-                "indicadores": ['', self._capacidade_bateria, self._horas_carga_min, self.perc_horas_carga_min, \
-                                self._horas_carga_max, self.perc_horas_carga_max, self._n_ciclos_bat]
-            })])
-            
-        ind = ind.set_index("quant")
+
+        ind = pd.DataFrame()
+        ind["label"]=[label]
+        ind["Potencia instalada [kW]"]=[self.capacidade_instalada]
+        ind["IAS: Contributo PV [%]"]=[self.ias] 
+        ind["IAC: Indice Auto consumo [%]"]=[self.iac]
+        ind["IER: Producao PV desperdicada [%]"]=[self.ier]
+        ind["Energia consumida [kWh]"]=[self.consumo_total]
+        ind["Energia Autoproduzida [kWh]"]=[self.energia_autoproduzida]
+        ind["Energia Autoconsumida [kWh]"]=[self.energia_autoconsumida]
+        ind["Energia consumida rede [kWh]"]=[self.energia_rede]
+        ind["Energia injectada rede [kWh]"]=[self.energia_injectada_rede]
+        ind["Perdas inversor [kWh]"]=[self.energia_perdida_inversor]
+        ind["Numero de horas equivalentes [h/ano]"]=[self.horas_equivalentes]
+        
+        if self.com_armazenamento:
+            ind["Capacidade bateria [kWh]"] = [self.capacidade_bateria]
+            ind["Energia fornecida bateria [kWh]"] = [self.energia_fornecida_bateria]
+            ind["Perdas bateria [kWh]"] = [self.energia_perdida_bateria]
+            ind["Ciclos da bateria"] = [self.num_ciclos_bateria]
+
+        ind["residuo"] = [self._residuo]
+        ind = ind.set_index("label")
         return ind
 
-    def print_html(self):
-        """ print as a html table
-        """
-        tabela = '<table style="font-size:16px">' \
-        +'<tr><td>Potencia Instalada</td><td>{:.2f} kW</td></tr>'.format(self._capacidade_instalada) \
-        +'<tr></tr>' \
-        +'<tr><td>Energia Autoproduzida [kWh]</td><td>{:.1f}</td></tr>'.format(self._energia_autoproduzida) \
-        +'<tr><td>Energia Autoconsumida [kWh]</td><td>{:.1f}</td></tr>'.format(self._energia_autoconsumida) \
-        +'<tr><td>Energia consumida rede [kWh]</td><td>{:.1f}</td></tr>'.format(self._energia_rede) \
-        +'<tr><td>Energia consumida [kWh]</td><td>{:.1f}</td></tr>'.format(self._consumo_total) \
-        +'<tr></tr>' \
-        +'<tr><td>Numero de horas equivalentes [h/ano]</td><td>{:.1f}</td></tr>'.format(self.horas_equivalentes) \
-        +'<tr><td>IAS: Contributo PV [%]</td><td>{:.1f}</td></tr>'.format(self._ias) \
-        +'<tr><td>IAC: Indice Auto consumo [%]</td><td>{:.1f}</td></tr>'.format(self._iac) \
-        +'<tr><td>IER: Producao PV desperdicada [%]</td><td>{:.1f}</td></tr>'.format(self._ier) 
-        if (self._com_armazenamento):
-            tabela += '<tr><td>Bateria:</td><td></td><td></td></tr>' \
-            + '<tr><td>Capacidade bateria [kWh]</td><td>{:.2f}</td><td></td></tr>'.format(self._capacidade_bateria) \
-            + '<tr><td>Em carga minima</td><td>{:.1f} hr</td><td>{:.2f} %</td></tr>'.format(self._horas_carga_min, self.perc_horas_carga_min) \
-            + '<tr><td>Em carga máxima</td><td>{:.1f} hr</td><td>{:.2f} %</td></tr>'.format(self._horas_carga_max, self.perc_horas_carga_max) \
-            + '<tr><td>Ciclos da bateria</td><td>{}</td><td></td></tr>' .format(self._n_ciclos_bat)
-        tabela += '</table>'
-        display(HTML(tabela))
+    def print_markdown(self, label="indicadores"):
+        tabela = self.to_frame(label)
 
-    def print_markdown(self):
-        """ print as markdown table
-        """
-        tabela = [
-            ['Potencia Instalada [kW]', '{:.2f}'.format(self._capacidade_instalada)],
-            ['Energia Autoproduzida [kWh]', '{:.1f}'.format(self._energia_autoproduzida)],
-            ['Energia Autoconsumida [kWh]', '{:.1f}'.format(self._energia_autoconsumida)],
-            ['Energia consumida rede [kWh]', '{:.1f}'.format(self._energia_rede)],
-            ['Energia consumida [kWh]', '{:.1f}'.format(self._consumo_total)],      
-            ['Numero de horas equivalentes [h/ano]', '{:.1f}'.format(self.horas_equivalentes)],
-            ['IAS: Contributo PV [%]', '{:.1f}'.format(self._ias)],
-            ['IAC: Indice Auto consumo [%]', '{:.1f}'.format(self._iac)],
-            ['IER: Producao PV desperdicada [%]', '{:.1f}'.format(self._ier)]
-        ]
-        print(tabulate(tabela, tablefmt="github"))
+        print(tabulate(tabela.T, tablefmt="github", floatfmt=('.1f')))
 
-        if (self._com_armazenamento):
-            bateria = [
-                ['Bateria:','',''],
-                ['Capacidade bateria [kWh]', '{:.2f}'.format(self._capacidade_bateria), ''],
-                ['Em carga minima','{:.1f} hr'.format(self._horas_carga_min),'{:.2f} %'.format(self.perc_horas_carga_min)],
-                ['Em carga máxima','{:.1f} hr'.format(self._horas_carga_max),'{:.2f} %'.format(self.perc_horas_carga_max)],
-                ['Ciclos da bateria','{}'.format(self._n_ciclos_bat)]
-            ]
-            print(tabulate(bateria, tablefmt="github"))
-        
+    def print_html(self, label="indicadores"):
+        tabela = self.to_frame(label).T
+        display(HTML(tabela.to_html(index=True, float_format="%.1f")))

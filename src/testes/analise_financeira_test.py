@@ -111,11 +111,11 @@ class TestAnaliseFinanceira(unittest.TestCase):
     def test_lcoe(self):
         taxa_actualizacao = 10
         taxa_degradacao = 0.7
-        # n horas equivalentes = 1533 kWh/kWp
-        ind = indicadores_autoconsumo(0, 0, 0, 0.68, 1042.7, 0, 0, 0)
+        
         opex = 10
         capex = 1500
         n_anos = 15
+        # n horas equivalentes = 1533 kWh/kWp
         lcoe = af._lcoe(n_anos, capex, opex, taxa_actualizacao, 0.68, 1042.7 / 0.68, taxa_degradacao)
 
         self.assertAlmostEqual(0.207, lcoe, 3)
@@ -202,7 +202,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         energia_rede = energia_total-energia_autoconsumida
         taxa_actualizacao = 5.0
         inflacao = 0.0
-        indicadores = indicadores_autoconsumo(iac, None, 100.0-iac, 1.0, energia_autoproduzida, energia_autoconsumida, energia_rede, energia_total)
+        indicadores = indicadores_autoconsumo(iac, None, 100.0-iac, 1.0, energia_autoproduzida, energia_autoconsumida, energia_rede, 0, energia_total, 0, 0)
         
         preco_energia = ape.TarifarioEnergia(0.1486)
 
@@ -218,7 +218,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         energia_rede = energia_total-energia_autoconsumida
         taxa_actualizacao = 5.0
         inflacao = 0.0
-        indicadores = indicadores_autoconsumo(iac, None, 100.0-iac, 1.0, energia_autoproduzida, energia_autoconsumida, energia_rede, energia_total)
+        indicadores = indicadores_autoconsumo(iac, None, 100.0-iac, 1.0, energia_autoproduzida, energia_autoconsumida, energia_rede, 0, energia_total, 0, 0)
         
         preco_energia = ape.TarifarioEnergia(0.1486, preco_venda_kwh=0.07)
 
