@@ -182,7 +182,7 @@ def leitura_consumo_faturas(ficheiro, ano):
     return consumos
 
 def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de Consumo kW", col_producao = "Dados de Producao kW", 
-                                             resample_horario=True, worksheet="Leituras", ano_a_considerar=None):
+                                             resample_horario=True, worksheet="Leituras", ano_a_considerar=None, n_linhas_cabecalho=8):
     """ Leitura de ficheiros excel mensais de uma pasta no formato <mes>_<ano>.xlsx com os dados
     medidos de consumo obtidos do balcao digita e-redes.
 
@@ -202,6 +202,8 @@ def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de C
         Nome da folha excel a ler, tem de ser o mesmo em todos os ficheiros
     ano_a_considerar : int, default: None
         Converter as leituras para este ano.
+    n_linhas_cabecalho : int, default: 8
+        Numero de linhas ate ao cabecalho das colunas nos ficheiros.
 
     Returns
     -------
@@ -213,7 +215,7 @@ def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de C
     list_of_files = sorted( glob.iglob(os.path.join(pasta, '*{}*'.format(ano))))
     li = []
     for fich in list_of_files:
-        df = pd.read_excel(fich, worksheet, skiprows=8)
+        df = pd.read_excel(fich, worksheet, skiprows=n_linhas_cabecalho)
         li.append(df)
 
     df = pd.concat(li, axis=0, ignore_index=True)
@@ -229,6 +231,9 @@ def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de C
     df = df.rename(columns={col_consumo:'consumo'})
     if col_producao in df.columns:
         df = df.rename(columns={col_producao:'producao'})
+
+    # apenas guardar colunas de interesse
+    df = df.drop(columns=[col for col in df.columns if col not in ['consumo', 'producao']])
 
     # converter para kwh
     df['consumo'] = df['consumo']*15/60
