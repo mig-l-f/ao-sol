@@ -23,6 +23,12 @@ Documentação da biblioteca e exemplos em [Documentação](https://ao-sol.readt
 
 A biblioteca foi desenvolvida e testada com python 3.8
 
+## Atribuição
+
+Calculo dos fluxos de energia e estudos paramétricos derivados de Quoilin _et al._ [1], código original disponivel [aqui](https://github.com/squoilin/Self-Consumption) e [aqui](https://github.com/energy-modelling-toolkit/prosumpy)
+
+Funções para obter dados do PVGIS derivados do PVLIB [2], biblioteca original disponivel [aqui](https://github.com/pvlib/pvlib-python)
+
 ## Fontes:
 
 <a id="1">[1]</a> 

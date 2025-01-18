@@ -22,6 +22,12 @@ Ver documentação de como instalar em {ref}`Instalação`
 
 Ver os exemplos jupyter notebook em {ref}`Exemplos`
 
+## Atribuição
+
+Calculo dos fluxos de energia e estudos paramétricos derivados de Quoilin _et al._ [1], código original disponivel [aqui](https://github.com/squoilin/Self-Consumption) e [aqui](https://github.com/energy-modelling-toolkit/prosumpy)
+
+Funções para obter dados do PVGIS derivados do PVLIB [2], biblioteca original disponivel [aqui](https://github.com/pvlib/pvlib-python)
+
 ## Fontes:
 
 <a id="1">[1]</a> 
