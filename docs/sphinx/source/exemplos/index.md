@@ -30,6 +30,10 @@ O perfil escolhido é ajustado ao valor de consumo anual através da formula:
 Perfil_{Ajustado} = \frac{Perfil_{E-Redes}*Consumo_{Anual}}{1000}
 ```
 
+```{nbgallery}
+./dados_consumo
+```
+
 ## Produção
 
 Os dados de produção são obtidos da API [PVGIS](https://re.jrc.ec.europa.eu/pvg_tools/en/) que permite obter uma series de produção para um ano de escolha. Sendo que o último ano disponivel à data era 2020.
@@ -40,7 +44,22 @@ Para obter os dados de produção é necessário saber:
 * A orientação da instalação que segue a convenção -180 a 180º e onde 0 significa sul.
 * As perdas do sistema em percentagem, o valor por defeito do PVGIS é 14%.
 
+```{nbgallery}
+./producao_pvgis
+```
+
 ## Templates
+
+Com o template **procura_upac** é possivel efectuar um estudo de vários tamanhos de sistema e obter 
+a relação entre o custo de energia e o indice de auto-sustentabilidade (IAS), tanto para sistema sem e com bateria. O objectivo é
+ajudar a encontrar qual o tamanho(s) de instação ao menor custo com maior IAS.
+
+Com template **analisa_upac** é possível fazer uma análise mais detalhada de 1 sistema sem bateria. São apresentados
+gráficos para compreender o contributo em cada mês do sistema e os vários indicadores. É também possível calcular a poupança mensal
+e calcular parâmetros de viabilidade do sistema para o seu tempo de vida.
+
+O template **analisa_upac_com_bateria** é semelhante ao anterior mas permite simular o comportamento da bateria e a apresenta um
+gráfico para uma semana à escolha para compreender o despacho da mesma.
 
 ```{nbgallery}
 ./procura_upac

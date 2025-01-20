@@ -16,8 +16,8 @@ Calculo do LCOE pelo método descrito no simulador NREL [3]_. Este método apena
 custos do sistema PV e a sua produção ao longo do tempo de vida.
 
 Custo de energia na optica do prosumidor [4]_ é diferente do LCOE da NREL na medida em que calcula o 
-custo médio do kWh consumido considerando PV, consumido da rede e da bateria se incluido e pode ser compara directmente 
-com o custo de compra à rede. Para um sistema com bateria é assumido que as mesmas terão de ser mudadas 1x ao longo do tempo de vida do projecto.
+custo médio do kWh consumido considerando PV, consumido da rede e da bateria se incluido. 
+Para um sistema com bateria é considerado que as mesmas serão mudadas 1x ao longo do tempo de vida do projecto.
 
 References
 ----------
