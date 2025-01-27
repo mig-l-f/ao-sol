@@ -26,6 +26,7 @@ class TestNewa(unittest.TestCase):
     # 2018-12-31 23:30:00  4.201182  106.585876
     # 1488        
 
+    @unittest.skip("calls API should only be ran locally.")
     def test_call_newa_api(self):
         params = [
             ('latitude', 38.8938),
