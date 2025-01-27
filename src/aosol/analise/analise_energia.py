@@ -46,6 +46,7 @@ import warnings
 from .indicadores_autoconsumo import indicadores_autoconsumo
 from ..armazenamento.bateria import bateria
 from .analise_financeira import custo_energia_prosumidor
+from .analise_precos_energia import identifica_periodo_tarifario_bihorario
 
 def calcula_indicadores_autoconsumo(energia, pot_instalada, ef_inv, bat=None, intervalo=1):
     """ Calcula indicadores de autoconsumo com armazenamento.
@@ -58,6 +59,8 @@ def calcula_indicadores_autoconsumo(energia, pot_instalada, ef_inv, bat=None, in
     - ier : indice entrega a rede. [%]
     - energia_autoconsumida : total energia autoconsumida. [kWh]
     - energia_rede : total energia consumida da rede. [kWh]
+    - energia_rede_vazio : total energia consumida da rede no periodo vazio. [kWh]
+    - energia_rede_fora_vazio : total energia consumida da rede no periodo fora de vazio. [kWh]
     - consumo_total : total energia consumida. [kWh]
     - perdas_inversor : perdas de energia na conversão do inversor. [kWh]
     - residuo : diferenca de control entre toda energia gerada (PV+rede) e consumida (carga+inj_rede+perdas_bat+perdas_inv)
@@ -73,6 +76,10 @@ def calcula_indicadores_autoconsumo(energia, pot_instalada, ef_inv, bat=None, in
     total_injeccao_rede = energia["injeccao_rede"].sum()
     total_autoconsumo = energia["autoconsumo"].sum()
     total_autoproducao = energia["autoproducao"].sum()
+
+    energia = identifica_periodo_tarifario_bihorario(energia)
+    total_vazio = energia.loc[(energia['periodo tarifario'] == 'vazio'), 'consumo_rede'].sum()
+    total_fora_vazio = energia.loc[(energia['periodo tarifario'] == 'fora vazio'), 'consumo_rede'].sum()
 
     ias = (total_autoconsumo / total_consumo)*100      # %
     iac = (total_autoconsumo / total_autoproducao)*100 # %
@@ -96,7 +103,8 @@ def calcula_indicadores_autoconsumo(energia, pot_instalada, ef_inv, bat=None, in
         total_injeccao_rede - perdas_inversor - perdas_bateria - total_consumo
 
     return indicadores_autoconsumo(iac, ias, ier, pot_instalada, total_autoproducao, total_autoconsumo, 
-                                   total_consumo_rede, total_injeccao_rede, total_consumo, perdas_inversor, residuo,
+                                   total_consumo_rede, total_vazio, total_fora_vazio,
+                                   total_injeccao_rede, total_consumo, perdas_inversor, residuo,
                                    com_bateria, total_descarga_bateria, perdas_bateria, n_ciclos, cap_bat)
     
 def analisa_upac_sem_armazenamento(energia, eficiencia_inversor=1, intervalo=1):
@@ -311,23 +319,32 @@ def plot_energia_mensal_bars(ax, energia_mensal, consumo_mensal, producao_mensal
     labels = [f'{v.get_height():.0f}\n({row:.0f}%)' if v.get_height() > 0 else '' for v, row in zip(c, per_cons)]
     ax.bar_label(c, labels=labels, label_type='center', fontsize=font)
     bottom = energia_mensal[col_consumo]
-
-    # autoconsumo (% consumo)
-    label_auto = f"{col_auto.replace('_',' ')} (% consumo)"
-    a = ax.bar(energia_mensal.index.month-offset, energia_mensal[col_auto], width=width, bottom=bottom, label=label_auto, color=cores[auto_idx_cor])
-    per_auto = energia_mensal[col_auto].div(consumo_mensal, axis=0).mul(100).round(0)
-    labels = [f'{v.get_height():.0f}\n({row:.0f}%)' if v.get_height() > 0 else '' for v, row in zip(a, per_auto)]
-    ax.bar_label(a, labels=labels, label_type='center', fontsize=font)
-    bottom += energia_mensal[col_auto]
-
-    # descarga bateria (% de autoproducao) caso seja especificado
+    
     if plot_descarga:
+        # autoconsumo directo (% consumo)        
+        autoconsumo_directo = energia_mensal[col_auto] - energia_mensal[col_descarga]
+        label_auto = f"{col_auto.replace('_',' ')} directo (% consumo)"
+        a = ax.bar(energia_mensal.index.month-offset, autoconsumo_directo, width=width, bottom=bottom, label=label_auto, color=cores[auto_idx_cor])
+        per_auto = autoconsumo_directo.div(consumo_mensal, axis=0).mul(100).round(0)
+        labels = [f'{v.get_height():.0f}\n({row:.0f}%)' if v.get_height() > 0 else '' for v, row in zip(a, per_auto)]
+        ax.bar_label(a, labels=labels, label_type='center', fontsize=font)
+        bottom += autoconsumo_directo
+
+        # descarga bateria (% consumo)
         label_descarga = f"{col_descarga.replace('_',' ')} (% consumo)"
         d = ax.bar(energia_mensal.index.month-offset, energia_mensal[col_descarga], width=width, bottom=bottom, label=label_descarga, color=cores[descarga_idx_cor])
         per_descarga = energia_mensal[col_descarga].div(consumo_mensal, axis=0).mul(100).round(0)
         labels = [f'{v.get_height():.0f}\n({row:.0f}%)' if v.get_height() > 0 else '' for v, row in zip(d, per_descarga)]
         ax.bar_label(d, labels=labels, label_type='center', fontsize=font)
         bottom += energia_mensal[col_descarga]
+    else:
+        # autoconsumo (% consumo)
+        label_auto = f"{col_auto.replace('_',' ')} (% consumo)"
+        a = ax.bar(energia_mensal.index.month-offset, energia_mensal[col_auto], width=width, bottom=bottom, label=label_auto, color=cores[auto_idx_cor])
+        per_auto = energia_mensal[col_auto].div(consumo_mensal, axis=0).mul(100).round(0)
+        labels = [f'{v.get_height():.0f}\n({row:.0f}%)' if v.get_height() > 0 else '' for v, row in zip(a, per_auto)]
+        ax.bar_label(a, labels=labels, label_type='center', fontsize=font)
+        bottom += energia_mensal[col_auto]
 
     # injeccao rede (% de autoproducao)    
     label_inj = f"{col_inj.replace('_', ' ')} (% producao)"
@@ -410,13 +427,27 @@ def estudo_upac_sem_bateria(consumo, producao, params_sistema, tarifario, params
     producao : pd.DataFrame
         Serie temporal com coluna 'autoproducao' para PV com 1kWp de capacidade. [kWh]
     params_sistema : dict
-        Dicionario com parametros do sistema sem bateria. 
+        Dicionario com parametros do sistema sem bateria:
+
         - consumo_anual: total anual. [kWh]
         - eficiencia_inversor : entre [0, 1]. [-]
     tarifario : ape.Tarifario
         Simples ou Bihorario.
     params_financeiros : dict
-        Dicionario com parametros financeiros para calculo custo energia.
+        Dicionario com parametros financeiros para calculo custo energia:
+
+        - tempo_vida: tempo de vida do projecto. [anos]
+        - tempo_vida_bat: tempo de vida da bateria. [anos]
+        - pv_por_kW: custo de cada kWp instalado de PV. [€/kW]
+        - bat_fixo: custo fixo de instalação de bateria. [€]
+        - bat_euro_por_kWh: custo por cada kWh de bateria instalado. [€/kWh]
+        - perc_custo_manutencao: percentagem do investimento gasto em manutenção anual. [%]
+        - taxa_actualização: taxa de actualização. [%]
+        - simples_kWh: preço compra à rede em tarifário simples. Só usado quando tarifario = tarifario.Simples. [€/kWh]
+        - vazio_kWh: preço de compra à rede em vazio no tarifario bihorario. Só usado quando tarifario = tarifario.Bihorario. [€/kWh]
+        - fora_vazio_kWh: preço de compra à rede fora de vazio no tarifario bihorario. Só usado quando tarifario = tarifario.Bihorario .[€/kWh]
+        - preco_venda_rede: Preco de venda da energia à rede. [€/kWh]
+
 
     Returns
     -------
@@ -442,16 +473,24 @@ def estudo_upac_sem_bateria(consumo, producao, params_sistema, tarifario, params
 
         energia = analisa_upac_sem_armazenamento(energia)
         indicadores = calcula_indicadores_autoconsumo(energia, pot_instalada, params_sistema["eficiencia_inversor"])
-        indicadores = indicadores.to_frame()
-
-        indicadores["r_pv"] = r_pv[i]
+        
+        # calcula custos prosumidor
+        params_financeiros["invest_pv"] = params_financeiros["pv_por_kW"] * pot_instalada
+        params_financeiros["invest_bat"] = 0
         params_financeiros["preco_venda_rede"] = 0.0
-        indicadores["lcoe s/ venda"], _, custo_medio_rede = custo_energia_prosumidor(energia, pot_instalada, 0, tarifario, params_financeiros)
+        lcoe_s_venda, _, custo_medio_rede = custo_energia_prosumidor(indicadores, tarifario, params_financeiros)
+        params_financeiros["preco_venda_rede"] = preco_venda_rede
+        lcoe_c_venda, _, _ = custo_energia_prosumidor(indicadores, tarifario, params_financeiros)
+
+        # guarda com frame
+        indicadores = indicadores.to_frame()
+        indicadores["r_pv"] = r_pv[i]
+        indicadores["lcoe s/ venda"] = lcoe_s_venda
+        indicadores["lcoe c/ venda"] = lcoe_c_venda
+
         if r_pv[i] == 0.0:
             custo_medio_sem_pv = custo_medio_rede
 
-        params_financeiros["preco_venda_rede"] = preco_venda_rede
-        indicadores["lcoe c/ venda"], _, _ = custo_energia_prosumidor(energia, pot_instalada, 0, tarifario, params_financeiros)
         resultados = pd.concat([resultados, indicadores])
 
     resultados = resultados.set_index("r_pv")
@@ -536,17 +575,31 @@ def estudo_upac_com_bateria(consumo, producao, params_sistema, tarifario, params
     producao : pd.DataFrame
         Serie temporal com coluna 'autoproducao' para PV com 1kWp de capacidade. [kWh]
     params_sistema : dict
-        Dicionario com parametros do sistema sem bateria. 
+        Dicionario com parametros do sistema sem bateria:
+
         - consumo_anual: total anual. [kWh]
         - eficiencia_inversor : entre [0, 1]. [-]
         - eficiencia_bateria : eficiencia entre carga e descarga, entre [0, 1]. [-]
         - soc_min : estado de carga minimo em fraccao da capacidade, entre [0, 1]. [-]
         - soc_max : estado de carga máximo em fraccao da capacidade, entre [0, 1]. [-]
         - pot_maxima : potencia máxima que pode ser fornecida/retirada da bateria. [kW]
+
     tarifario : ape.Tarifario
         Simples ou Bihorario.
     params_financeiros : dict
-        Dicionario com parametros financeiros para calculo custo energia.    
+        Dicionario com parametros financeiros para calculo custo energia:
+
+        - tempo_vida: tempo de vida do projecto. [anos]
+        - tempo_vida_bat: tempo de vida da bateria. [anos]
+        - pv_por_kW: custo de cada kWp instalado de PV. [€/kW]
+        - bat_fixo: custo fixo de instalação de bateria. [€]
+        - bat_euro_por_kWh: custo por cada kWh de bateria instalado. [€/kWh]
+        - perc_custo_manutencao: percentagem do investimento gasto em manutenção anual. [%]
+        - taxa_actualização: taxa de actualização. [%]
+        - simples_kWh: preço compra à rede em tarifário simples. Só usado quando tarifario = tarifario.Simples. [€/kWh]
+        - vazio_kWh: preço de compra à rede em vazio no tarifario bihorario. Só usado quando tarifario = tarifario.Bihorario. [€/kWh]
+        - fora_vazio_kWh: preço de compra à rede fora de vazio no tarifario bihorario. Só usado quando tarifario = tarifario.Bihorario .[€/kWh]
+        - preco_venda_rede: Preco de venda da energia à rede. [€/kWh]
 
     Returns
     -------
@@ -575,15 +628,17 @@ def estudo_upac_com_bateria(consumo, producao, params_sistema, tarifario, params
 
             energia = analisa_upac_com_armazenamento(energia, bat, eficiencia_inversor=params_sistema["eficiencia_inversor"])
             indicadores = calcula_indicadores_autoconsumo(energia, pot_instalada, params_sistema["eficiencia_inversor"], bat)
-            indicadores = indicadores.to_frame()
 
+            # calcula custos prosumidor
+            params_financeiros["invest_pv"] = params_financeiros["pv_por_kW"] * pot_instalada
+            params_financeiros["invest_bat"] = params_financeiros["bat_fixo"] + params_financeiros["bat_euro_por_kWh"]*cap_bat
             params_financeiros["preco_venda_rede"] = 0.0
-
-            lcoe_s_venda, lcos_s_venda, _ = custo_energia_prosumidor(energia, pot_instalada, cap_bat, tarifario, params_financeiros)
+            lcoe_s_venda, lcos_s_venda, _ = custo_energia_prosumidor(indicadores, tarifario, params_financeiros)
             params_financeiros["preco_venda_rede"] = preco_venda_rede
+            lcoe_c_venda, lcos_c_venda, _ = custo_energia_prosumidor(indicadores, tarifario, params_financeiros)
 
-            lcoe_c_venda, lcos_c_venda, _ = custo_energia_prosumidor(energia, pot_instalada, cap_bat, tarifario, params_financeiros)
-            #LCOE[i, j] = lcoe_c_venda
+            # guarda como dataframe
+            indicadores = indicadores.to_frame()
             indicadores["r_pv"] = r_pv
             indicadores["r_bat"] = r_bat
             indicadores["lcoe s/ venda"] = lcoe_s_venda
