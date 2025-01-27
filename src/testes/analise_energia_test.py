@@ -100,9 +100,12 @@ class AnaliseEnergiaTest(unittest.TestCase):
     ])
     def test_ciclos_bateria(self, cap_total, soc_min, soc_max, exp_n_ciclos):
         energia = pd.DataFrame({
+            "time": ["2010-10-10 06:00", "2010-10-10 12:00", "2010-10-10 18:00", "2010-10-10 22:00"],
             "consumo":[0., 2., 0., 2.],
             "autoproducao":[4., 0., 4., 0.],
         })
+        energia["time"] = pd.to_datetime(energia["time"])
+        energia = energia.set_index("time")
 
         bat = bateria.bateria(cap_total, soc_min, soc_max)
         energia = ae.analisa_upac_com_armazenamento(energia, bateria=bat, soc_0=0)
@@ -112,6 +115,7 @@ class AnaliseEnergiaTest(unittest.TestCase):
     
     def test_indicadores_autoconsumo(self):
         energia = pd.DataFrame({
+            "time": ["2010-10-10 06:00", "2010-10-10 12:00"],
             "consumo":[1., 2.],
             "autoproducao":[3., 1.],
             "autoconsumo":[1., 1.9],
@@ -121,6 +125,8 @@ class AnaliseEnergiaTest(unittest.TestCase):
             "descarga_bateria":[0., 0.9],
             "soc":[1.0, 0.0]
         })
+        energia["time"] = pd.to_datetime(energia["time"])
+        energia = energia.set_index("time")
 
         bat = bateria.bateria(1.0, 0.0, 1.0, 0.9)
 
@@ -134,3 +140,27 @@ class AnaliseEnergiaTest(unittest.TestCase):
         self.assertAlmostEqual(0.9, ind.energia_fornecida_bateria, 1)
 
         ind.print_markdown()
+
+    def test_indicadores_autoconsumo_bihorario(self):
+        energia = pd.DataFrame({
+            "time": ["2010-10-10 06:00", "2010-10-10 12:00"],
+            "consumo":[2., 3.],
+            "autoproducao":[3., 1.],
+            "autoconsumo":[1., 1.9],
+            "consumo_rede":[1., 1.1],
+            "injeccao_rede":[1., 0.],
+            "carga_bateria":[1., 0.],
+            "descarga_bateria":[0., 0.9],
+            "soc":[1.0, 0.0]
+        })
+        energia["time"] = pd.to_datetime(energia["time"])
+        energia = energia.set_index("time")
+
+        bat = bateria.bateria(1.0, 0.0, 1.0, 0.9)
+
+        ind = ae.calcula_indicadores_autoconsumo(energia, 1.0, 0.98, bat, 1.0)
+
+        self.assertAlmostEqual(5.0, ind.consumo_total, 1)
+        self.assertAlmostEqual(2.1, ind.energia_rede, 1)
+        self.assertAlmostEqual(1.0, ind.energia_rede_vazio, 1)
+        self.assertAlmostEqual(1.1, ind.energia_rede_fora_vazio, 1)

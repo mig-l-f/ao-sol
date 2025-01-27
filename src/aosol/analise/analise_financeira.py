@@ -16,8 +16,8 @@ Calculo do LCOE pelo método descrito no simulador NREL [3]_. Este método apena
 custos do sistema PV e a sua produção ao longo do tempo de vida.
 
 Custo de energia na optica do prosumidor [4]_ é diferente do LCOE da NREL na medida em que calcula o 
-custo médio do kWh consumido considerando PV, consumido da rede e da bateria se incluido e pode ser compara directmente 
-com o custo de compra à rede. Para um sistema com bateria é assumido que as mesmas terão de ser mudadas 1x ao longo do tempo de vida do projecto.
+custo médio do kWh consumido considerando PV, consumido da rede e da bateria se incluido. 
+Para um sistema com bateria é considerado que as mesmas serão mudadas 1x ao longo do tempo de vida do projecto.
 
 References
 ----------
@@ -152,8 +152,9 @@ def analise_poupanca_anual_fatura(energia
     return mensal
 
 def analise_financeira_projecto_faturas(energia 
-                                      , capex
-                                      , opex
+                                      , invest_pv
+                                      , invest_bat
+                                      , perc_custo_om
                                       , taxa_actualizacao
                                       , ano_0
                                       , tempo_vida                               
@@ -172,20 +173,22 @@ def analise_financeira_projecto_faturas(energia
     energia: pandas.DataFrame
         Serie temporal de energia em kwh na coluna 'autoconsumo'. 
         Adicionalmente coluna 'injeccao_rede' quando incluido venda à rede.
-    capex : float
-        Custos iniciais em €
-    opex : float
-        Custos operação em €
+    invest_pv : float
+        Investimento em PV, deve incluir todos os custos de instalação no inicio do projecto. [€]
+    invest_bat : float
+        Investimento em baterias, deve apenas incluir os custos que sejam incorridos se o sistema de baterias for mudado. [€]
+    perc_custo_om : float
+        Percentagem com custos de operação e manutenção. [%]
     taxa_actualizacao : float
-        Taxa de actualização em %
+        Taxa de actualização. [%]
     ano_0 : int
-        Ano 0 do projecto
+        Ano 0 do projecto. [ano]
     tempo_vida : int
-        Tempo de vida do projecto
+        Tempo de vida do projecto. [anos]
     taxa_degradacao_sistema : float
-        Taxa degradação energia do sistema por ano em %
+        Taxa degradação energia do sistema por ano. [%]
     taxa_inflacao : float
-        Taxa de inflação do preços energia em %
+        Taxa de inflação do preços energia. [%]
     tarifario: ape.Tarifario
         Tipo de tarifário: simples, bihorario, trihorario
     precos_energia : ape.TarifarioEnergia
@@ -218,6 +221,10 @@ def analise_financeira_projecto_faturas(energia
     financeiro['ano_projecto'] = range(tempo_vida+1)
     # ano 0 operacao é o 1o ano financeiro, n ha perda de energia no ano 0
     financeiro['ano_operacao'] = np.maximum(financeiro['ano_projecto']-1,0)
+
+    # custos
+    capex = invest_pv + invest_bat
+    opex = capex * (perc_custo_om / 100.0)
 
     # conversao taxas
     rd = taxa_degradacao_sistema / 100
@@ -334,12 +341,30 @@ def analise_financeira_projecto_faturas(energia
     if (indicadores_autoconsumo is not None):
         lcoe = _lcoe(tempo_vida, capex, opex, taxa_actualizacao, indicadores_autoconsumo.capacidade_instalada, indicadores_autoconsumo.horas_equivalentes, taxa_degradacao_sistema)
 
-    return indicadores_financeiros(val, tir, tr, capex, opex, tempo_vida, lcoe), financeiro
+    # COE prosumidor
+    coe_prosumidor = 0
+    if (indicadores_autoconsumo is not None) and (tarifario is not ape.Tarifario.Trihorario):
+        params = {
+            "tempo_vida": tempo_vida,
+            "tempo_vida_bat": int(tempo_vida / 2),
+            "invest_pv": invest_pv,
+            "invest_bat": invest_bat,
+            "perc_custo_manutencao": perc_custo_om,
+            "taxa_actualizacao": taxa_actualizacao,
+            "simples_kWh": precos_energia.custo_kwh_simples,
+            "vazio_kWh": precos_energia.custo_bi_kwh_vazio,
+            "fora_vazio_kWh": precos_energia.custo_bi_kwh_fora_vazio,
+            "preco_venda_rede": precos_energia.preco_venda_kwh
+        }
+        coe_prosumidor, _, _ = custo_energia_prosumidor(indicadores_autoconsumo, tarifario, params)
+
+    return indicadores_financeiros(val, tir, tr, capex, opex, tempo_vida, lcoe, coe_prosumidor), financeiro
 
 def analise_financeira_projecto_indicadores_autoconsumo_faturas(indicadores_autoconsumo
                                                         , iac_a_considerar
-                                                        , capex
-                                                        , opex
+                                                        , invest_pv
+                                                        , invest_bat
+                                                        , perc_custo_om
                                                         , taxa_actualizacao
                                                         , ano_0
                                                         , tempo_vida
@@ -361,10 +386,12 @@ def analise_financeira_projecto_indicadores_autoconsumo_faturas(indicadores_auto
         Utilização da energia anual consumida e produzida para a análise financeira. O iac é ignorado.
     iac_a_considerar: float
         Indicador de autoconsumo a utilizar na análise para calcular energia produzida e autoconsumida.
-    capex : float
-        Custos iniciais em €
-    opex : float
-        Custos operação em €
+    invest_pv : float
+        Investimento em PV, deve incluir todos os custos de instalação no inicio do projecto. [€]
+    invest_bat : float
+        Investimento em baterias, deve apenas incluir os custos que sejam incorridos se o sistema de baterias for mudado. [€]
+    perc_custo_om : float
+        Percentagem com custos de operação e manutenção. [%]
     taxa_actualizacao : float
         Taxa de actualização em %
     ano_0 : int
@@ -441,6 +468,8 @@ def analise_financeira_projecto_indicadores_autoconsumo_faturas(indicadores_auto
         financeiro['cash flow in'] = financeiro['cash flow in'] + financeiro['cash venda rede']
 
     # saida
+    capex = invest_pv + invest_bat
+    opex = capex * (perc_custo_om / 100)
     financeiro['cash flow out'] = [opex for i in range(tempo_vida+1)]
     financeiro['cash flow out'].iat[0] = capex
 
@@ -462,9 +491,26 @@ def analise_financeira_projecto_indicadores_autoconsumo_faturas(indicadores_auto
     if (indicadores_autoconsumo is not None):
         lcoe = _lcoe(tempo_vida, capex, opex, taxa_actualizacao, indicadores_autoconsumo.capacidade_instalada, indicadores_autoconsumo.horas_equivalentes, taxa_degradacao_sistema)
 
-    return indicadores_financeiros(val, tir, tr, capex, opex, tempo_vida, lcoe), financeiro
+    # COE prosumidor
+    coe_prosumidor = 0
+    if (indicadores_autoconsumo is not None): # and (tarifario is not ape.Tarifario.Trihorario):
+        params = {
+            "tempo_vida": tempo_vida,
+            "tempo_vida_bat": int(tempo_vida / 2),
+            "invest_pv": invest_pv,
+            "invest_bat": invest_bat,
+            "perc_custo_manutencao": perc_custo_om,
+            "taxa_actualizacao": taxa_actualizacao,
+            "simples_kWh": precos_energia.custo_kwh_simples,
+            "vazio_kWh": precos_energia.custo_bi_kwh_vazio,
+            "fora_vazio_kWh": precos_energia.custo_bi_kwh_fora_vazio,
+            "preco_venda_rede": precos_energia.preco_venda_kwh
+        }
+        coe_prosumidor, _, _ = custo_energia_prosumidor(indicadores_autoconsumo, ape.Tarifario.Simples, params)
 
-def custo_energia_prosumidor(energia, pot_instalada, cap_bat, tarifario, params_financeiros):
+    return indicadores_financeiros(val, tir, tr, capex, opex, tempo_vida, lcoe, coe_prosumidor), financeiro
+
+def custo_energia_prosumidor(indicadores_autoconsumo, tarifario, params_financeiros):
     """ Custo da energia na perspectiva do prosumidor.
 
     Custo da energia ao longo da vida do projecto englobando o investimento em UPAC/baterias, 
@@ -472,32 +518,22 @@ def custo_energia_prosumidor(energia, pot_instalada, cap_bat, tarifario, params_
 
     Parameters
     ----------
-    energia : pd.Dataframe
-        Dataframe com coluna: 'consumo', 'consumo_rede', 'injeccao_rede' e 'descarga_bateria'
-    pot_instalada : float
-        Potencia da UPAC. [kWp]
-    cap_bat : float
-        Capacidade da bateria. [kWh]
-    energia_rede : float
-        Total de energia consumida da rede. [kWh]
-    energia_injectada_rede : float
-        Total de energia injectada na rede. [kWh]
-    consumo_anual : float
-        Total de consumo anual de energia. [kWh]
+    indicadores_autoconsumo : indicadores_autoconsumo
+        Indicadores de autoconsumo apos analise de energia.
     tarifario : Tarifario
         Tipo de tarifario, so disponivel simples e bihorario.
     params_financeiros : dict
         Dicionario com os parametros financeiros, seguintes parametros:
+
         - tempo_vida: tempo de vida do projecto. [anos]
         - tempo_vida_bat: tempo de vida da bateria. [anos]
-        - pv_por_kW: custo de cada kWp instalado de PV. [€/kW]
-        - bat_fixo: custo fixo de instalação de bateria. [€]
-        - bat_euro_por_kWh: custo por cada kWh de bateria instalado. [€/kWh]
+        - invest_pv : custo investimento  pv. [€]
+        - invest_bat : custo investimento bateria. [€]
         - perc_custo_manutencao: percentagem do investimento gasto em manutenção anual. [%]
         - taxa_actualização: taxa de actualização. [%]
-        - simples_kwh: preço compra à rede em tarifário simples. Só usado quando tarifario = tarifario.Simples. [€/kWh]
-        - vazio_kwh: preço de compra à rede em vazio no tarifario bihorario. Só usado quando tarifario = tarifario.Bihorario. [€/kWh]
-        - fora_vazio_kwh: preço de compra à rede fora de vazio no tarifario bihorario. Só usado quando tarifario = tarifario.Bihorario .[€/kWh]
+        - simples_kWh: preço compra à rede em tarifário simples. Só usado quando tarifario = tarifario.Simples. [€/kWh]
+        - vazio_kWh: preço de compra à rede em vazio no tarifario bihorario. Só usado quando tarifario = tarifario.Bihorario. [€/kWh]
+        - fora_vazio_kWh: preço de compra à rede fora de vazio no tarifario bihorario. Só usado quando tarifario = tarifario.Bihorario .[€/kWh]
         - preco_venda_rede: Preco de venda da energia à rede. [€/kWh]
 
     Returns
@@ -509,34 +545,33 @@ def custo_energia_prosumidor(energia, pot_instalada, cap_bat, tarifario, params_
     custo_medio_compra_rede : float
         Custo medio da energia comprada à rede. [€/kWh]
     """
-    consumo_anual = energia["consumo"].sum()
-    energia_injectada_rede = energia["injeccao_rede"].sum()
-    if 'descarga_bateria' in energia.columns:
-        energia_bateria = energia['descarga_bateria'].sum()
+    consumo_anual = indicadores_autoconsumo.consumo_total
+    energia_injectada_rede = indicadores_autoconsumo.energia_injectada_rede
+    if indicadores_autoconsumo.com_armazenamento:
+        energia_bateria = indicadores_autoconsumo.energia_fornecida_bateria
     else:
         energia_bateria = 0
 
     custo_medio_compra_rede = 0
-    total_consumo_rede = energia["consumo_rede"].sum()
+    total_consumo_rede = indicadores_autoconsumo.energia_rede
     if tarifario == ape.Tarifario.Simples:
-        compra_rede = total_consumo_rede * params_financeiros["simples_kwh"]
-        custo_medio_compra_rede = params_financeiros["simples_kwh"]
+        compra_rede = total_consumo_rede * params_financeiros["simples_kWh"]
+        custo_medio_compra_rede = params_financeiros["simples_kWh"]
     elif tarifario == ape.Tarifario.Bihorario:
-        energia = ape.identifica_periodo_tarifario_bihorario(energia)
-        total_vazio = energia.loc[(energia['periodo tarifario'] == 'vazio'), 'consumo_rede'].sum()
-        total_fora_vazio = energia.loc[(energia['periodo tarifario'] == 'fora vazio'), 'consumo_rede'].sum()
-        compra_rede = total_vazio * params_financeiros["vazio_kwh"] + total_fora_vazio * params_financeiros["fora_vazio_kwh"]
+        total_vazio = indicadores_autoconsumo.energia_rede_vazio
+        total_fora_vazio = indicadores_autoconsumo.energia_rede_fora_vazio
+        compra_rede = total_vazio * params_financeiros["vazio_kWh"] + total_fora_vazio * params_financeiros["fora_vazio_kWh"]
         custo_medio_compra_rede = compra_rede / total_consumo_rede
     else:
         raise Exception('Custo de energia so aceita tarifario simples ou bihorario.')
-
-    invest_pv = params_financeiros["pv_por_kW"] * pot_instalada
+    
+    invest_pv = params_financeiros["invest_pv"]
     om = params_financeiros["perc_custo_manutencao"] / 100.0
     i = params_financeiros["taxa_actualizacao"] / 100.0
 
     invest_bat = 0
-    if cap_bat > 0:
-        invest_bat = params_financeiros["bat_fixo"] + params_financeiros["bat_euro_por_kWh"]*cap_bat
+    if indicadores_autoconsumo.com_armazenamento:
+        invest_bat = params_financeiros["invest_bat"]
         # taxa desconto e segundo investimento em bateria ao longo do tempo de vida
         invest_bat = invest_bat * (1 + 1/(pow(1+i, params_financeiros["tempo_vida_bat"])))
 

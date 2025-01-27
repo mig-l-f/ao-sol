@@ -2,19 +2,21 @@
 
 Os indicadores para todos os sistemas são:
 
-====================== ======== ===========
-Indicadores            Unidade  Descrição
-====================== ======== ===========
-iac                    %        Indice auto consumo. Quanta da energia produzida é autoconsumida.
-ias                    %        Indice auto suficiência. Quanta da energia total é coberta por autoconsumo.
-ier                    %        Indice entrega a rede [%]. Quanta da energia produzia é entregue à rede.
-energia_autoconsumida  kWh      Total energia autoconsumida.
-energia_rede           kWh      Total energia consumida da rede.
-consumo_total          kWh      Total energia consumida.
-injeccao_rede          kWh      Total energia injectada na rede.
-perdas_inversor        kWh      Total energia perdida na conversão do inversor.
-residuo                kWh      Residuo entre energia gerada (autoproducao+consumo_rede) e consumida (injeccao_rede+perdas_inversor+perdas_bateria+consumo).
-====================== ======== ===========
+======================== ======== ===========
+Indicadores              Unidade  Descrição
+======================== ======== ===========
+iac                      %        Indice auto consumo. Quanta da energia produzida é autoconsumida.
+ias                      %        Indice auto suficiência. Quanta da energia total é coberta por autoconsumo.
+ier                      %        Indice entrega a rede [%]. Quanta da energia produzia é entregue à rede.
+energia_autoconsumida    kWh      Total energia autoconsumida.
+energia_rede             kWh      Total energia consumida da rede.
+energia_rede_vazio       kWh      Total energia consumida da rede em periodo vazio.
+energia_rede_fora_vazio  kWh      Total energia consumida da rede em periodo fora de vazio.
+consumo_total            kWh      Total energia consumida.
+injeccao_rede            kWh      Total energia injectada na rede.
+perdas_inversor          kWh      Total energia perdida na conversão do inversor.
+residuo                  kWh      Residuo entre energia gerada (autoproducao+consumo_rede) e consumida (injeccao_rede+perdas_inversor+perdas_bateria+consumo).
+======================== ======== ===========
 
 Adicionalmente, sistimas com bateria têm os seguintes indicadores:
 
@@ -33,7 +35,8 @@ import pandas as pd
 class indicadores_autoconsumo:
     """ Classe que contêm os indicadores de autoconsumo.
     """
-    def __init__(self, iac, ias, ier, capacidade_instalada, energia_autoproduzida, energia_autoconsumida, energia_rede, 
+    def __init__(self, iac, ias, ier, capacidade_instalada, energia_autoproduzida, energia_autoconsumida, 
+                 energia_rede, energia_rede_vazio, energia_rede_fora_vazio, 
                  energia_injectada_rede, consumo_total, perdas_inversor, residuo,
                  armazenamento=False, fornecido_bateria=0, perdas_bateria=0, num_ciclos_bateria=0, capacidade_bateria=0):
         self._iac = iac
@@ -43,6 +46,8 @@ class indicadores_autoconsumo:
         self._energia_autoproduzida = energia_autoproduzida
         self._energia_autoconsumida = energia_autoconsumida
         self._energia_rede = energia_rede
+        self._energia_rede_vazio = energia_rede_vazio
+        self._energia_rede_fora_vazio = energia_rede_fora_vazio
         self._energia_injectada_rede = energia_injectada_rede
         self._consumo_total = consumo_total
         self._perdas_inversor = perdas_inversor
@@ -100,6 +105,18 @@ class indicadores_autoconsumo:
         """ Energia consumida da rede em kWh
         """
         return self._energia_rede
+
+    @property
+    def energia_rede_vazio(self):
+        """ Energia consumida da rede em periodo vazio em kWh.
+        """
+        return self._energia_rede_vazio
+
+    @property
+    def energia_rede_fora_vazio(self):
+        """ Energia consumida da rede em periodo fora de vazio em kWh.
+        """
+        return self._energia_rede_fora_vazio
 
     @property
     def energia_injectada_rede(self):

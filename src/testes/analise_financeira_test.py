@@ -105,7 +105,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
 
     def test_indicador_financeiro_frame(self):
 
-        id = af.indicadores_financeiros(10, 5.1, 12, 1000, 10, 20, 0)
+        id = af.indicadores_financeiros(10, 5.1, 12, 1000, 10, 20, 0, 0)
         display_html(id.as_frame())
 
     def test_lcoe(self):
@@ -131,7 +131,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df['stamp'] = pd.to_datetime(df['stamp'])
         df = df.set_index('stamp')
         preco_energia = ape.TarifarioEnergia(0.1486)
-        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 10, 5, 2021, 5, 0.0, 0.0, ape.Tarifario.Simples, preco_energia, False)
+        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.0, 0.0, ape.Tarifario.Simples, preco_energia, False)
         self.assertAlmostEqual(43.490, fin.val, 3)
 
     def test_analise_financeira_tarifario_simples_faturas_com_degradacao(self):
@@ -145,7 +145,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df['stamp'] = pd.to_datetime(df['stamp'])
         df = df.set_index('stamp')
         preco_energia = ape.TarifarioEnergia(0.1486)
-        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 10, 5, 2021, 5, 0.7, 0.0, ape.Tarifario.Simples, preco_energia, False)
+        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.7, 0.0, ape.Tarifario.Simples, preco_energia, False)
         self.assertAlmostEqual(40.484, fin.val, 3)
 
     def test_analise_financeira_tarifario_simples_venda_rede(self):
@@ -160,7 +160,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df['stamp'] = pd.to_datetime(df['stamp'])
         df = df.set_index('stamp')
         preco_energia = ape.TarifarioEnergia(0.1486, preco_venda_kwh=0.07)
-        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 10, 5, 2021, 5, 0.0, 0.0, ape.Tarifario.Simples, preco_energia, True)
+        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.0, 0.0, ape.Tarifario.Simples, preco_energia, True)
         self.assertAlmostEqual(116.225, fin.val, 3)
 
     def test_analise_financeira_tarifario_simples_venda_rede_degradacao_sistema(self):
@@ -175,7 +175,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df['stamp'] = pd.to_datetime(df['stamp'])
         df = df.set_index('stamp')
         preco_energia = ape.TarifarioEnergia(0.1486, preco_venda_kwh=1.0)
-        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 10, 5, 2021, 5, 0.7, 0.0, ape.Tarifario.Simples, preco_energia, True)
+        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.7, 0.0, ape.Tarifario.Simples, preco_energia, True)
         self.assertAlmostEqual(168.993, fin.val, 3)
 
     def test_analise_financeira_tarifario_simples_venda_rede_com_degradacao_sistema_e_inflacao(self):
@@ -190,7 +190,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df['stamp'] = pd.to_datetime(df['stamp'])
         df = df.set_index('stamp')
         preco_energia = ape.TarifarioEnergia(0.1486, preco_venda_kwh=0.07)
-        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 10, 5, 2021, 5, 0.7, 2.0, ape.Tarifario.Simples, preco_energia, True)
+        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.7, 2.0, ape.Tarifario.Simples, preco_energia, True)
         self.assertAlmostEqual(60.593, fin.val, 3)
 
     def test_analise_financeira_indicadores_autoconsumo_simples_faturas(self):
@@ -202,11 +202,11 @@ class TestAnaliseFinanceira(unittest.TestCase):
         energia_rede = energia_total-energia_autoconsumida
         taxa_actualizacao = 5.0
         inflacao = 0.0
-        indicadores = indicadores_autoconsumo(iac, None, 100.0-iac, 1.0, energia_autoproduzida, energia_autoconsumida, energia_rede, 0, energia_total, 0, 0)
+        indicadores = indicadores_autoconsumo(iac, None, 100.0-iac, 1.0, energia_autoproduzida, energia_autoconsumida, energia_rede, 0, 0, 0, energia_total, 0, 0)
         
         preco_energia = ape.TarifarioEnergia(0.1486)
 
-        fin, _ = af.analise_financeira_projecto_indicadores_autoconsumo_faturas(indicadores, 60.0, 200.0, 10.0, taxa_actualizacao, 2022, 5, 0, inflacao, preco_energia, False)
+        fin, _ = af.analise_financeira_projecto_indicadores_autoconsumo_faturas(indicadores, 60.0, 200, 0, 5, taxa_actualizacao, 2022, 5, 0, inflacao, preco_energia, False)
         self.assertAlmostEqual(43.49, fin.val, 2)
 
     def test_analise_financeira_indicadores_autoconsumo_venda_rede_faturas(self):
@@ -218,11 +218,10 @@ class TestAnaliseFinanceira(unittest.TestCase):
         energia_rede = energia_total-energia_autoconsumida
         taxa_actualizacao = 5.0
         inflacao = 0.0
-        indicadores = indicadores_autoconsumo(iac, None, 100.0-iac, 1.0, energia_autoproduzida, energia_autoconsumida, energia_rede, 0, energia_total, 0, 0)
+        indicadores = indicadores_autoconsumo(iac, None, 100.0-iac, 1.0, energia_autoproduzida, energia_autoconsumida, energia_rede, 0, 0, 0, energia_total, 0, 0)
         
         preco_energia = ape.TarifarioEnergia(0.1486, preco_venda_kwh=0.07)
-
-        fin, _ = af.analise_financeira_projecto_indicadores_autoconsumo_faturas(indicadores, 60.0, 200.0, 10.0, taxa_actualizacao, 2022, 5, 0, inflacao, preco_energia, True)
+        fin, _ = af.analise_financeira_projecto_indicadores_autoconsumo_faturas(indicadores, 60.0, 200, 0, 5, taxa_actualizacao, 2022, 5, 0, inflacao, preco_energia, True)
         self.assertAlmostEqual(116.225, fin.val, 3)
 
     def test_poupanca_anual_fatura_incorrecto_numero_colunas_sem_venda_rede(self):
@@ -273,3 +272,52 @@ class TestAnaliseFinanceira(unittest.TestCase):
             af.analise_poupanca_anual_fatura(df, ape.Tarifario.Simples, precos_energia, True, ['consumo', 'consumo_rede', 'injeccao_rede'])
         except ValueError:
             self.fail('Nao devia falhar com venda a rede e 3 nomes')
+
+    def test_custo_prosumidor_sem_bateria(self):
+        # Given
+        ind = indicadores_autoconsumo(0, 0, 0, 1, 0, 0, 40, 20, 20, 20, 200, 0, 0, False)
+        params = {
+            "tempo_vida": 20,
+            "tempo_vida_bat": 10,
+            "invest_pv": 1000,
+            "invest_bat": 0,
+            "perc_custo_manutencao": 5,
+            "taxa_actualizacao": 5,
+            "simples_kWh": 0.15,
+            "vazio_kWh": 0.10,
+            "fora_vazio_kWh": 0.20,
+            "preco_venda_rede": 0.04
+        }
+
+        # When
+        custo = af.custo_energia_prosumidor(ind, ape.Tarifario.Bihorario, params)
+
+        # Then
+        self.assertAlmostEqual(custo[0], 0.68, 2)
+        self.assertAlmostEqual(custo[1], 0, 0)
+        self.assertAlmostEqual(custo[2], 0.15, 2)
+
+    def test_custo_prosumidor_com_bateria(self):
+        # Given
+        ind = indicadores_autoconsumo(0, 00, 0, 1, 0, 0, 40, 20, 20, 20, 200, 0, 0,
+                                      True, 40, 0, 0, 1)
+        params = {
+            "tempo_vida": 20,
+            "tempo_vida_bat": 10,
+            "invest_pv": 1000,
+            "invest_bat": 700,
+            "perc_custo_manutencao": 5,
+            "taxa_actualizacao": 5,
+            "simples_kWh": 0.15,
+            "vazio_kWh": 0.10,
+            "fora_vazio_kWh": 0.20,
+            "preco_venda_rede": 0.04
+        }
+
+        # When
+        custo = af.custo_energia_prosumidor(ind, ape.Tarifario.Bihorario, params)
+
+        # Then
+        self.assertAlmostEqual(custo[0], 1.41, 2)
+        self.assertAlmostEqual(custo[1], 3.68, 2)
+        self.assertAlmostEqual(custo[2], 0.15, 2)
