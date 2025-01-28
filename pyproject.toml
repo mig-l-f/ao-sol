@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aosol"
+version = "0.1.0"
+authors = [
+  { name="Miguel Fernandes" },
+]
+description = "Ao-Sol: projectos solares de auto-consumo"
+keywords = ["pv", "fotovoltaico", "autoconsumo", "solar"]
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = "EUPL-1.2"
+license-files = ["License.md"]
+dependencies = [
+    'numpy==1.23.5',
+    'pandas==1.5.3',
+    'matplotlib==3.6.3',
+    'notebook==6.5.6',
+    'requests==2.28.2',
+    'tabulate==0.9.0',
+    'sympy==1.11.1',
+    'openpyxl==3.0.10',
+]
+
+[project.urls]
+Homepage = "https://github.com/mig-l-f/ao-sol"
+Documentation = "https://ao-sol.readthedocs.io/pt/latest/index.html"
+
+[project.optional-dependencies]
+optional = [
+    'netcdf4==1.6.5',
+]
+doc = [
+    'sphinx',
+    'myst-parser',
+    'nbsphinx',
+    'nbsphinx-link',
+    'sphinx-gallery',
+    'pandoc',
+    'sphinx-autoapi',
+    'sphinx-rtd-theme==3.0.1',
+]
+test = [
+    'parameterized==0.9.0',
+]
+all = ["aosol[test,optional,doc]"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aosol"]

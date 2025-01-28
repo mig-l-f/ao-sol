@@ -1,18 +1,10 @@
 from datetime import datetime
 import unittest
 from parameterized import parameterized
-import sys
-sys.path.append('..')
-from aosol.series import pvgis
-from aosol.series import producao
 from aosol.armazenamento.bomba_calor_aqs import BombaCalorAqs, ParametrosBombaCalor, ModoOperacaoBombaCalor
 from aosol.armazenamento.perfil_extraccao import PerfilExtraccao, TipoPerfil
 from aosol.analise import analise_bomba_calor as abc
 import pandas as pd
-import netCDF4
-import os
-import requests
-import tempfile
 from datetime import datetime, timedelta
 
 class TestBombaCalor(unittest.TestCase):

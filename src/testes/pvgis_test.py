@@ -1,13 +1,7 @@
 from datetime import datetime
 import unittest
-import sys
-sys.path.append('..')
 from aosol.series import pvgis
 import pandas as pd
-import netCDF4
-import os
-import requests
-import tempfile
 
 class TestPVGIS(unittest.TestCase):
     # Opcoes API PVGIS

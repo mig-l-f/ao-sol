@@ -6,14 +6,12 @@
 
 As instruções seguintes consideram uma distribuição Anaconda/[Miniconda](https://docs.anaconda.com/miniconda/).
 
-As bibliotecas netcdf e hdf5 é necessária para as funcionalidade NEWA (new european wind atlas), sendo que hdf5 é um pre-requisito da netcdf. À data
-das instruções foram testadas as seguintes versões no sistema MacOS:
+Caso se pretenda obter dados da NEWA (new european wind atlas) é necessário configurar o ambiente para trabalhar com NETCDF. Para tal é necessário instalar
+as seguintes bibliotecas nativas:
 * HDF5@1.14
 * Netcdf@4.9.2
 
-Caso não sejam necessárias as funcionalidades NEWA ou não seja possível instalar estas bibliotecas recomendo que no ficheiro `requirements.txt` se comente a linha com netcdf.
-
-![](../_images/comentar_netcdf.png)
+Após a instalação destas pode ser instalada a biblioteca netcdf python que requer estas como dependências. Netcdf é um requisito opcional, mais abaixo é descrito como instalar requisitos opcionais.
 
 ## Clonar o reposiório
 
@@ -46,19 +44,45 @@ Mudar o directório actual para a pasta clonada
 cd ao-sol
 ```
 
-Instalar as bibliotecas necessárias
+A biblioteca pode ser instalada de 2 modos: ``normal``ou ``editavel``, no último é apenas criado um link para esta pasta e se forem feitas alterações ao código elas serão automaticamente utilizadas. No modo ``normal`` se forem feitas alterações é necessário correr novamente o comando de instalação.
+
+Para instalar em modo ``normal``:
 
 ```console
-pip install -r requirements.txt
+pip install .
 ```
 
-Neste momento a instalação está concluida. O próximo passo será correr os notebooks.
+Para instalar em modo ``editavel``:
+
+```console
+pip install -e .
+```
+
+Para instalar os requisitos opcionais como ``netcdf``:
+
+```console
+pip install .[optional]
+```
+
+ou se foi instalado em modo ``editavel``:
+```console
+pip install -e .[optional]
+```
+
+Se der erro tentar tambem utilizar com aspas:
+```console
+pip install -e ".[optional]"
+```
+
+O próximo passo será correr os notebooks.
 
 ## Notebooks
 
-O repositório contêm 2 notebooks exemplo na pasta {ref}`Exemplos`:
+O repositório contêm 3 notebooks exemplo na pasta {ref}`Exemplos`:
 * **Analise UPAC.ipynb**: Uma UPAC sem bateria baseada em perfil de consumo da eredes.
 * **Analise UPAC com bateria.ipynb**: Uma UPAC com bateria baseada em perfil de consumo da eredes.
+* **Procura UPAC.ipynb**: Estudo paramétrico de sistemas
+com e sem bateria para encontrar o sistema que melhor sistema ao custo mais baixo.
 
 Os perfis de consumo da e-redes podem ser obtidos [aqui](https://www.e-redes.pt/pt-pt/perfis-de-consumo)
 
