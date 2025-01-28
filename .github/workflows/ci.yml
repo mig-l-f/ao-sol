@@ -1,13 +1,10 @@
 # This workflow will install Python dependencies, run tests and lint with a variety of Python versions
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-name: Build # Build master, reflects project build status
-
+name: CI # build on every commit that is not on master, does not influence project status
 on:
   push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+    branches-ignore: [ "master" ]
 
 jobs:
   build:
