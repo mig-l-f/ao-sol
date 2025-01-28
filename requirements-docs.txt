@@ -1,8 +1,0 @@
-sphinx
-myst-parser
-nbsphinx
-nbsphinx-link
-sphinx-gallery
-pandoc
-sphinx-autoapi
-sphinx-rtd-theme==3.0.1

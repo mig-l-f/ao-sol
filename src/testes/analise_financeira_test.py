@@ -1,12 +1,9 @@
-from tkinter.tix import Tree
 import pandas as pd
 import unittest
-import sys
-sys.path.append('..')
 from aosol.analise.indicadores_autoconsumo import indicadores_autoconsumo
 from aosol.analise import analise_financeira as af
 from aosol.analise import analise_precos_energia as ape
-from IPython.display import HTML, display_html
+from IPython.display import display_html
 
 class TestAnaliseFinanceira(unittest.TestCase):
     def test_poupanca_anual_fatura_tarifario_simples(self):

@@ -1,10 +1,7 @@
 from datetime import datetime
-from sqlite3 import apilevel
 import unittest
 import pandas as pd
 from datetime import datetime
-import sys
-sys.path.append('..')
 from aosol.analise import analise_precos_energia as ape
 
 class TestPrecoEnergia(unittest.TestCase):

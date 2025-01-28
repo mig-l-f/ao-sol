@@ -6,8 +6,11 @@ build:
     python: "3.8"
 
 python:
-  install:
-    - requirements: requirements-docs.txt
+   install:
+      - method: pip
+        path: .
+        extra_requirements:
+          - doc
 
 sphinx:
   configuration: docs/sphinx/source/conf.py

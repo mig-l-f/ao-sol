@@ -1,13 +1,6 @@
 import unittest
-import os
-import sys
-sys.path.append('..')
 import aosol.analise.analise_energia as ae
-import aosol.series.consumo as series
-import aosol.series.producao as seriesprod
-import aosol.series.pvgis as pvgis
 from aosol.armazenamento import bateria
-from tabulate import tabulate
 from parameterized import parameterized
 import pandas as pd
 
