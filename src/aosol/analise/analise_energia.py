@@ -224,7 +224,7 @@ def analisa_upac_com_armazenamento(energia, bateria, intervalo=1, eficiencia_inv
     
     return energia
 
-def calcula_12x24(energia, col):
+def calcula_12x24(energia, col, func='mean'):
     """ Calcula matriz 12 meses x 24 horas.
 
     Parameters
@@ -233,13 +233,15 @@ def calcula_12x24(energia, col):
         Dataframe com a serie temporal de energia.
     col: str 
         Nome da coluna a calcular.
+    func: str, default='mean'
+        Função a aplicar, por defeito média.
     
     Returns
     -------
     pd.DataFrame
         Dataframe com médias de energia por hora por mes.
     """
-    d_12x24 = energia.groupby([energia.index.month, energia.index.hour])[col].mean()
+    d_12x24 = energia.groupby([energia.index.month, energia.index.hour])[col].agg(func) #.mean()
     d_12x24.index.names = ["mes", "hora"]
     d_12x24 = d_12x24.unstack("mes")
     return d_12x24

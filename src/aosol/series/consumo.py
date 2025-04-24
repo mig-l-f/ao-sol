@@ -182,7 +182,8 @@ def leitura_consumo_faturas(ficheiro, ano):
     return consumos
 
 def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de Consumo kW", col_producao = "Dados de Producao kW", 
-                                             resample_horario=True, worksheet="Leituras", ano_a_considerar=None, n_linhas_cabecalho=8):
+                                             resample_horario=True, worksheet="Leituras", ano_a_considerar=None, n_linhas_cabecalho=8, 
+                                             converter_energia=True):
     """ Leitura de ficheiros excel mensais de uma pasta no formato <mes>_<ano>.xlsx com os dados
     medidos de consumo obtidos do balcao digita e-redes.
 
@@ -204,6 +205,8 @@ def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de C
         Converter as leituras para este ano.
     n_linhas_cabecalho : int, default: 8
         Numero de linhas ate ao cabecalho das colunas nos ficheiros.
+    converter_energia : bool, default: True
+        Se queremos converter de potencia para energia.
 
     Returns
     -------
@@ -236,7 +239,8 @@ def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de C
     df = df.drop(columns=[col for col in df.columns if col not in ['consumo', 'producao']])
 
     # converter para kwh
-    df['consumo'] = df['consumo']*15/60
+    if (converter_energia):
+        df['consumo'] = df['consumo']*15/60
 
     if (resample_horario):
         # resample para horario
