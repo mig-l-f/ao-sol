@@ -415,7 +415,7 @@ def plot_despacho_energia(energia, semana):
     ax[2].xaxis.set_minor_locator(mdates.HourLocator(byhour=[0, 6, 12, 18]))
     ax[2].xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
 
-def estudo_upac_sem_bateria(consumo, producao, params_sistema, tarifario, params_financeiros):
+def estudo_upac_sem_bateria(consumo, producao, params_sistema, tarifario, params_financeiros, r_pv_max=3):
     """ Estudo parametrico de UPAC sem bateria.
 
     Variação do parametro r_pv para calculo do IAS (auto-suficiência) e custo de energia.
@@ -450,6 +450,8 @@ def estudo_upac_sem_bateria(consumo, producao, params_sistema, tarifario, params
         - fora_vazio_kWh: preço de compra à rede fora de vazio no tarifario bihorario. Só usado quando tarifario = tarifario.Bihorario .[€/kWh]
         - preco_venda_rede: Preco de venda da energia à rede. [€/kWh]
 
+    r_pv_max : int, default: 3
+        Factor maximo.
 
     Returns
     -------
@@ -458,7 +460,7 @@ def estudo_upac_sem_bateria(consumo, producao, params_sistema, tarifario, params
     custo_medio_sem_pv : float
         Custo da energia sem sistema PV (r_pv = 0)
     """
-    r_pv = np.linspace(0, 3, 30)
+    r_pv = np.linspace(0, r_pv_max, r_pv_max*10)
     warnings.filterwarnings('ignore') 
     neps = producao["autoproducao"].sum()
 
