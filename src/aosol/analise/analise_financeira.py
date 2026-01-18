@@ -527,8 +527,9 @@ def custo_energia_prosumidor(indicadores_autoconsumo, tarifario, params_financei
 
         - tempo_vida: tempo de vida do projecto. [anos]
         - tempo_vida_bat: tempo de vida da bateria. [anos]
-        - invest_pv : custo investimento  pv. [€]
-        - invest_bat : custo investimento bateria. [€]
+        - pv_por_kW: preco por kW de PV instalado. [€/kW]
+        - bat_por_kWh: preco por kWh de bateria instalado. [€/kWh]
+        - reinvestir_bat: considerar reinvestimento numa 2a bateria. [bool]
         - perc_custo_manutencao: percentagem do investimento gasto em manutenção anual. [%]
         - taxa_actualização: taxa de actualização. [%]
         - simples_kWh: preço compra à rede em tarifário simples. Só usado quando tarifario = tarifario.Simples. [€/kWh]
@@ -565,15 +566,19 @@ def custo_energia_prosumidor(indicadores_autoconsumo, tarifario, params_financei
     else:
         raise Exception('Custo de energia so aceita tarifario simples ou bihorario.')
     
-    invest_pv = params_financeiros["invest_pv"]
+    #invest_pv = params_financeiros["invest_pv"]
+    invest_pv = params_financeiros["pv_por_kW"] * indicadores_autoconsumo.capacidade_instalada
     om = params_financeiros["perc_custo_manutencao"] / 100.0
     i = params_financeiros["taxa_actualizacao"] / 100.0
 
     invest_bat = 0
     if indicadores_autoconsumo.com_armazenamento:
-        invest_bat = params_financeiros["invest_bat"]
+        invest_bat = params_financeiros["bat_por_kWh"] * indicadores_autoconsumo.capacidade_bateria
         # taxa desconto e segundo investimento em bateria ao longo do tempo de vida
-        invest_bat = invest_bat * (1 + 1/(pow(1+i, params_financeiros["tempo_vida_bat"])))
+        reinvestimento_bat = invest_bat / (pow(1+i, params_financeiros["tempo_vida_bat"])) if params_financeiros["reinvestir_bat"] else 0
+        #invest_bat = params_financeiros["invest_bat"]
+        #invest_bat = invest_bat * (1 + 1/(pow(1+i, params_financeiros["tempo_vida_bat"])))
+        invest_bat += reinvestimento_bat
 
     crf = (i * pow(1.0+i, params_financeiros["tempo_vida"])) / (pow(1.0+i,params_financeiros["tempo_vida"]) - 1.0)
     a = (invest_pv + invest_bat) * (crf + om)

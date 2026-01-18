@@ -17,12 +17,13 @@ import numpy as np
 class indicadores_bomba_calor:
     """ Indicadores desempenho da bomba de calor.
     """
-    def __init__(self, scop, e_term_bc, e_elec_usada_bc, e_elec_resist, e_perd_dep, frac_backup, n_horas_abaixo_min, n_dias):
+    def __init__(self, scop, e_term_bc, e_elec_usada_bc, e_elec_resist, e_perd_dep, e_extrac_aqs, frac_backup, n_horas_abaixo_min, n_dias):
         self._scop = scop
         self._e_term_bc = e_term_bc
         self._e_elec_bc = e_elec_usada_bc
         self._e_elec_resist = e_elec_resist
         self._e_perd_dep = e_perd_dep
+        self.e_extrac_aqs = e_extrac_aqs
         self._frac_backup = frac_backup
         self._n_horas_min = n_horas_abaixo_min
         self._n_dias = n_dias
@@ -82,6 +83,18 @@ class indicadores_bomba_calor:
         return self._e_perd_dep / self._n_dias
 
     @property
+    def energia_extraida_aqs(self):
+        """ Total energia extraida para AQS. [kWh]
+        """
+        return self.e_extrac_aqs
+
+    @property
+    def energia_extraida_aqs_p_dia(self):
+        """ Energia extraida para AQS por dia. [kWh/dia]
+        """
+        return self.e_extrac_aqs / self._n_dias
+
+    @property
     def frac_backup(self):
         """ Fracção da energia térmica fornecida pela resistência. [-]
         """
@@ -108,9 +121,9 @@ class indicadores_bomba_calor:
             Nome/identificado da análise.
         """
         stats = pd.DataFrame({
-            "quant": ["Energia termica BC [kWh]", "Consumo electrico BC [kWh]", "Consumo electrico Resistencia [kWh]", "Perda ambient depósito [kWH]", "SCOP [-]", "Fraccao resistencia [-]", "Num horas abaixo temperatura min [-]"],
-            nome: [self.energia_term_bc, self.energia_elec_bc, self.energia_elec_resist, self.energia_perd_dep, self.scop, self.frac_backup, self.n_horas_min],
-            f"{nome} [p/dia]": [self.energia_term_bc_p_dia, self.energia_elec_bc_p_dia, self.energia_elec_resist_p_dia, self.energia_perd_dep_p_dia, None, None, None]
+            "quant": ["Energia termica BC [kWh]", "Consumo electrico BC [kWh]", "Consumo electrico Resistencia [kWh]", "Perda ambient depósito [kWH]", "Energia Extraida Aqs [kWh]", "SCOP [-]", "Fraccao resistencia [-]", "Num horas abaixo temperatura min [-]"],
+            nome: [self.energia_term_bc, self.energia_elec_bc, self.energia_elec_resist, self.energia_perd_dep, self.energia_extraida_aqs, self.scop, self.frac_backup, self.n_horas_min],
+            f"{nome} [p/dia]": [self.energia_term_bc_p_dia, self.energia_elec_bc_p_dia, self.energia_elec_resist_p_dia, self.energia_perd_dep_p_dia, self.energia_extraida_aqs_p_dia, None, None, None]
         })
         stats = stats.set_index("quant")
         return stats

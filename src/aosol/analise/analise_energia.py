@@ -479,8 +479,8 @@ def estudo_upac_sem_bateria(consumo, producao, params_sistema, tarifario, params
         indicadores = calcula_indicadores_autoconsumo(energia, pot_instalada, params_sistema["eficiencia_inversor"])
         
         # calcula custos prosumidor
-        params_financeiros["invest_pv"] = params_financeiros["pv_por_kW"] * pot_instalada
-        params_financeiros["invest_bat"] = 0
+        #params_financeiros["invest_pv"] = params_financeiros["pv_por_kW"] * pot_instalada
+        #params_financeiros["invest_bat"] = 0
         params_financeiros["preco_venda_rede"] = 0.0
         lcoe_s_venda, _, custo_medio_rede = custo_energia_prosumidor(indicadores, tarifario, params_financeiros)
         params_financeiros["preco_venda_rede"] = preco_venda_rede
@@ -562,7 +562,7 @@ def plot_estudo_sem_bateria(resultados, ax, titulo):
     labels = labels1 + labels2
     ax.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=2)
 
-def estudo_upac_com_bateria(consumo, producao, params_sistema, tarifario, params_financeiros):
+def estudo_upac_com_bateria(consumo, producao, params_sistema, tarifario, params_financeiros, r_pv_max=2.5, r_bat_max=2):
     """ Estudo paramétrico de UPAC com bateria.
 
     Variação de parâmetros r_pv [0, 2] e r_bat [0.5, 2.5] relativos ao total de consumo e
@@ -596,8 +596,8 @@ def estudo_upac_com_bateria(consumo, producao, params_sistema, tarifario, params
         - tempo_vida: tempo de vida do projecto. [anos]
         - tempo_vida_bat: tempo de vida da bateria. [anos]
         - pv_por_kW: custo de cada kWp instalado de PV. [€/kW]
-        - bat_fixo: custo fixo de instalação de bateria. [€]
-        - bat_euro_por_kWh: custo por cada kWh de bateria instalado. [€/kWh]
+        - bat_por_kWh: custo de cada kWh instalado de bateria. [€/kWh]
+        - reinvestir_bat: considerar reinvestimento numa 2a bateria. [bool]
         - perc_custo_manutencao: percentagem do investimento gasto em manutenção anual. [%]
         - taxa_actualização: taxa de actualização. [%]
         - simples_kWh: preço compra à rede em tarifário simples. Só usado quando tarifario = tarifario.Simples. [€/kWh]
@@ -605,13 +605,18 @@ def estudo_upac_com_bateria(consumo, producao, params_sistema, tarifario, params
         - fora_vazio_kWh: preço de compra à rede fora de vazio no tarifario bihorario. Só usado quando tarifario = tarifario.Bihorario .[€/kWh]
         - preco_venda_rede: Preco de venda da energia à rede. [€/kWh]
 
+    r_pv_max : int, default: 2.5
+        Factor máximo de r_pv. [kWh/kWh]
+    r_bat_max : float, default: 2
+        Factor máximo de r_bat. [kWh/MWh]
+
     Returns
     -------
     resultados : pd.DataFrame
         Dataframe com indicadores de energia para os vários r_pv e r_bat.
     """
-    ratios_pv = np.linspace(0.5, 2.5, 20)
-    ratios_bat = np.linspace(0, 2, 20)
+    ratios_pv = np.linspace(0.5, r_pv_max, 20)
+    ratios_bat = np.linspace(0, r_bat_max, 20)
 
     neps = producao["autoproducao"].sum()
     resultados = pd.DataFrame()
@@ -634,8 +639,9 @@ def estudo_upac_com_bateria(consumo, producao, params_sistema, tarifario, params
             indicadores = calcula_indicadores_autoconsumo(energia, pot_instalada, params_sistema["eficiencia_inversor"], bat)
 
             # calcula custos prosumidor
-            params_financeiros["invest_pv"] = params_financeiros["pv_por_kW"] * pot_instalada
-            params_financeiros["invest_bat"] = params_financeiros["bat_fixo"] + params_financeiros["bat_euro_por_kWh"]*cap_bat
+            #params_financeiros["invest_pv"] = params_financeiros["pv_por_kW"] * pot_instalada
+            #params_financeiros["invest_bat"] = params_financeiros["bat_fixo"] + params_financeiros["bat_euro_por_kWh"]*cap_bat
+            #params_financeiros["invest_bat"] = params_financeiros["bat_por_kWh"] * cap_bat
             params_financeiros["preco_venda_rede"] = 0.0
             lcoe_s_venda, lcos_s_venda, _ = custo_energia_prosumidor(indicadores, tarifario, params_financeiros)
             params_financeiros["preco_venda_rede"] = preco_venda_rede
