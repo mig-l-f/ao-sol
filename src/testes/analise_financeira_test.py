@@ -18,7 +18,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df = df.set_index('stamp')
         precos_energia = ape.TarifarioEnergia(custo_kwh_simples=0.1486, pot_contratada=ape.PotenciaContratada.kVA_3_45, pot_contratada_custo_dia=0.1480 + 0.018, pot_contratada_termo_fixo_redes_custo_dia=0.1480)
         mensal = af.analise_poupanca_anual_fatura(df, ape.Tarifario.Simples, precos_energia, False)
-        self.assertAlmostEqual(36.43, mensal.loc['Setembro','fatura sem upac'], 2)
+        self.assertAlmostEqual(35.39, mensal.loc['Setembro','fatura sem upac'], 2)
         print(mensal)
 
     def test_poupanca_anual_fatura_tarifario_bihorario(self):
@@ -42,7 +42,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df = df.set_index('stamp')
         precos_energia = ape.TarifarioEnergia(custo_bi_kwh_fora_vazio=0.1815, custo_bi_kwh_vazio=0.0958, pot_contratada=ape.PotenciaContratada.kVA_6_9, pot_contratada_custo_dia=0.2959 + 0.0188, pot_contratada_termo_fixo_redes_custo_dia=0.2959)
         mensal = af.analise_poupanca_anual_fatura(df, ape.Tarifario.Bihorario, precos_energia, False)
-        self.assertAlmostEqual(60.86, mensal.loc['Setembro','fatura sem upac'], 2)
+        self.assertAlmostEqual(59.79, mensal.loc['Setembro','fatura sem upac'], 2)
         print(mensal)
 
     def test_poupanca_anual_fatura_tarifario_trihorario(self):
@@ -68,7 +68,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df = df.set_index('stamp')
         precos_energia = ape.TarifarioEnergia(custo_tri_kwh_ponta=0.2336, custo_tri_kwh_cheia=0.1710, custo_tri_kwh_vazio=0.1073, pot_contratada=ape.PotenciaContratada.kVA_3_45, pot_contratada_custo_dia=0.0904 + 0.0758, pot_contratada_termo_fixo_redes_custo_dia=0.0904)
         mensal = af.analise_poupanca_anual_fatura(df, ape.Tarifario.Trihorario, precos_energia, False, ano_tarifario=2022)
-        self.assertAlmostEqual(44.85, mensal.loc['Janeiro','fatura sem upac'], 2)
+        self.assertAlmostEqual(43.69, mensal.loc['Janeiro','fatura sem upac'], 2)
 
     def test_poupanca_anual_venda_rede(self):
         df = pd.DataFrame({'stamp':[
@@ -83,7 +83,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df = df.set_index('stamp')
         precos_energia = ape.TarifarioEnergia(preco_venda_kwh=1.0, custo_kwh_simples=0.1486, pot_contratada=ape.PotenciaContratada.kVA_3_45, pot_contratada_custo_dia=0.1480 + 0.018, pot_contratada_termo_fixo_redes_custo_dia=0.1480)
         mensal = af.analise_poupanca_anual_fatura(df, ape.Tarifario.Simples, precos_energia, True)
-        self.assertAlmostEqual(36.43, mensal.loc['Setembro','fatura sem upac'], 2)
+        self.assertAlmostEqual(35.39, mensal.loc['Setembro','fatura sem upac'], 2)
         self.assertEqual(4.0, mensal.loc['Anual','venda a rede'])
         print(mensal)
 
@@ -143,7 +143,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df = df.set_index('stamp')
         preco_energia = ape.TarifarioEnergia(0.1486)
         fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.7, 0.0, ape.Tarifario.Simples, preco_energia, False)
-        self.assertAlmostEqual(40.484, fin.val, 3)
+        self.assertAlmostEqual(40.527, fin.val, 3)
 
     def test_analise_financeira_tarifario_simples_venda_rede(self):
         df = pd.DataFrame({'stamp':[
@@ -173,7 +173,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df = df.set_index('stamp')
         preco_energia = ape.TarifarioEnergia(0.1486, preco_venda_kwh=1.0)
         fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.7, 0.0, ape.Tarifario.Simples, preco_energia, True)
-        self.assertAlmostEqual(168.993, fin.val, 3)
+        self.assertAlmostEqual(169.036, fin.val, 3)
 
     def test_analise_financeira_tarifario_simples_venda_rede_com_degradacao_sistema_e_inflacao(self):
         df = pd.DataFrame({'stamp':[
@@ -188,7 +188,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df = df.set_index('stamp')
         preco_energia = ape.TarifarioEnergia(0.1486, preco_venda_kwh=0.07)
         fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.7, 2.0, ape.Tarifario.Simples, preco_energia, True)
-        self.assertAlmostEqual(60.593, fin.val, 3)
+        self.assertAlmostEqual(60.668, fin.val, 3)
 
     def test_analise_financeira_indicadores_autoconsumo_simples_faturas(self):
         # reproduz test simples sem degradacao, inflacao ou venda rede de AF faturas simples
@@ -276,8 +276,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         params = {
             "tempo_vida": 20,
             "tempo_vida_bat": 10,
-            "invest_pv": 1000,
-            "invest_bat": 0,
+            "pv_por_kW": 1000,
             "perc_custo_manutencao": 5,
             "taxa_actualizacao": 5,
             "simples_kWh": 0.15,
@@ -301,8 +300,9 @@ class TestAnaliseFinanceira(unittest.TestCase):
         params = {
             "tempo_vida": 20,
             "tempo_vida_bat": 10,
-            "invest_pv": 1000,
-            "invest_bat": 700,
+            "pv_por_kW": 1000,
+            "bat_por_kWh": 700,
+            "reinvestir_bat": True,
             "perc_custo_manutencao": 5,
             "taxa_actualizacao": 5,
             "simples_kWh": 0.15,

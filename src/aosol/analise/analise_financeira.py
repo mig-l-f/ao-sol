@@ -347,8 +347,9 @@ def analise_financeira_projecto_faturas(energia
         params = {
             "tempo_vida": tempo_vida,
             "tempo_vida_bat": int(tempo_vida / 2),
-            "invest_pv": invest_pv,
-            "invest_bat": invest_bat,
+            "pv_por_kW": invest_pv / indicadores_autoconsumo.capacidade_instalada,
+            "bat_por_kWh": invest_bat / indicadores_autoconsumo.capacidade_bateria if indicadores_autoconsumo.com_armazenamento else 0,
+            "reinvestir_bat": False,
             "perc_custo_manutencao": perc_custo_om,
             "taxa_actualizacao": taxa_actualizacao,
             "simples_kWh": precos_energia.custo_kwh_simples,
@@ -497,8 +498,9 @@ def analise_financeira_projecto_indicadores_autoconsumo_faturas(indicadores_auto
         params = {
             "tempo_vida": tempo_vida,
             "tempo_vida_bat": int(tempo_vida / 2),
-            "invest_pv": invest_pv,
-            "invest_bat": invest_bat,
+            "pv_por_kW": invest_pv / indicadores_autoconsumo.capacidade_instalada,
+            "bat_por_kWh": invest_bat / indicadores_autoconsumo.capacidade_bateria if indicadores_autoconsumo.com_armazenamento else 0,
+            "reinvestir_bat": False,
             "perc_custo_manutencao": perc_custo_om,
             "taxa_actualizacao": taxa_actualizacao,
             "simples_kWh": precos_energia.custo_kwh_simples,

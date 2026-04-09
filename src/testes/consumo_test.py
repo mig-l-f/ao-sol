@@ -13,9 +13,9 @@ class TestConsumo(unittest.TestCase):
 
         t['Timestamp'] = t[['Data', 'Hora']].apply(consumo.converter_timestamp_hora_24_para_hora_00, axis=1)
 
-        self.assertEqual('06/Jan/2022 00:00', t['Timestamp'].iloc[0])
-        self.assertEqual('01/Fev/2022 00:00', t['Timestamp'].iloc[1])
-        self.assertEqual('15/Abr/2021 16:30', t['Timestamp'].iloc[2])
+        self.assertEqual('06/jan/2022 00:00', t['Timestamp'].iloc[0])
+        self.assertEqual('01/fev/2022 00:00', t['Timestamp'].iloc[1])
+        self.assertEqual('15/abr/2021 16:30', t['Timestamp'].iloc[2])
 
     def test_leitura_perfis_eredes(self):
         fich = os.path.join(os.path.dirname(__file__), "teste_perfis_eredes.csv")
@@ -53,4 +53,35 @@ class TestConsumo(unittest.TestCase):
         perfil_carga = consumo.leitura_ficheiros_mensais_medicao_eredes(pasta, ano_leituras, ano_a_considerar=ano_converter)
 
         self.assertEqual(2023, perfil_carga.index[0].year)
-        self.assertEqual(2023, perfil_carga.index[-1].year)        
+        self.assertEqual(2023, perfil_carga.index[-1].year)       
+
+    def test_ajustar_perfil_eredes_a_consumo_anual_horario(self): 
+        # Given
+        perfil = pd.DataFrame({
+            'Timestamp': ['05/jan/2021 10:00', '05/jan/2021 10:15', '05/jan/2021 10:30', '05/jan/2021 10:45'], 
+                'BTN C': [0.1, 0.2, 0.3, 0.4]})
+        perfil['Timestamp'] = pd.to_datetime(perfil['Timestamp'],format='%d/%b/%Y %H:%M')
+        perfil = perfil.set_index('Timestamp')
+        
+        # When
+        consumo_ajustado = consumo.ajustar_perfil_eredes_a_consumo_anual(perfil, 1000, 'BTN C', 'consumo')
+
+        # Then
+        self.assertEqual(1, len(consumo_ajustado))
+        self.assertEqual(1, consumo_ajustado['consumo'].iloc[0])
+
+    def test_ajustar_perfil_eredes_a_consumo_anual_15min(self):
+        # Given
+        perfil = pd.DataFrame({
+            'Timestamp': ['05/jan/2021 10:00', '05/jan/2021 10:15', '05/jan/2021 10:30', '05/jan/2021 10:45'], 
+                'BTN C': [0.1, 0.2, 0.3, 0.4]})
+        perfil['Timestamp'] = pd.to_datetime(perfil['Timestamp'],format='%d/%b/%Y %H:%M')
+        perfil = perfil.set_index('Timestamp')
+        
+        # When
+        consumo_ajustado = consumo.ajustar_perfil_eredes_a_consumo_anual(perfil, 1000, 'BTN C', 'consumo', resample_horario=False)
+
+        # Then
+        self.assertEqual(4, len(consumo_ajustado))
+        self.assertEqual(1, consumo_ajustado['consumo'].sum())
+        

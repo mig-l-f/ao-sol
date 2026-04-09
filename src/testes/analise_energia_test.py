@@ -157,3 +157,28 @@ class AnaliseEnergiaTest(unittest.TestCase):
         self.assertAlmostEqual(2.1, ind.energia_rede, 1)
         self.assertAlmostEqual(1.0, ind.energia_rede_vazio, 1)
         self.assertAlmostEqual(1.1, ind.energia_rede_fora_vazio, 1)
+
+    def test_calcula_12x24_horario(self):
+        energia = pd.DataFrame({
+            "time": ["2010-10-10 06:00", "2010-10-10 07:00", "2010-10-10 08:00", 
+                     "2010-10-11 06:00"],
+            "consumo":[2., 2., 2., 3.],
+        })
+        energia["time"] = pd.to_datetime(energia["time"])
+        energia = energia.set_index("time")
+
+        d12_24 = ae.calcula_12x24(energia, 'consumo', quartohorario=False)
+
+        self.assertAlmostEqual(2.5, d12_24.loc[6, 10], 1)
+
+    def test_calcula_12x24_15min(self):
+        energia = pd.DataFrame({
+            "time": ["2010-10-10 06:00", "2010-10-10 06:15", "2010-10-10 06:30", "2010-10-10 06:45"],
+            "consumo":[0.5, 0.5, 0.5, 0.5],
+        })
+        energia["time"] = pd.to_datetime(energia["time"])
+        energia = energia.set_index("time")
+
+        d12_24 = ae.calcula_12x24(energia, 'consumo', quartohorario=True)
+
+        self.assertAlmostEqual(2., d12_24.loc[6, 10], 1)

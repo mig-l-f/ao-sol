@@ -42,6 +42,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib
 import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 import warnings
 from .indicadores_autoconsumo import indicadores_autoconsumo
 from ..armazenamento.bateria import bateria
@@ -81,8 +82,8 @@ def calcula_indicadores_autoconsumo(energia, pot_instalada, ef_inv, bat=None, in
     total_vazio = energia.loc[(energia['periodo tarifario'] == 'vazio'), 'consumo_rede'].sum()
     total_fora_vazio = energia.loc[(energia['periodo tarifario'] == 'fora vazio'), 'consumo_rede'].sum()
 
-    ias = (total_autoconsumo / total_consumo)*100      # %
-    iac = (total_autoconsumo / total_autoproducao)*100 # %
+    ias = 0.0 if total_consumo == 0.0 else (total_autoconsumo / total_consumo) * 100
+    iac = 0.0 if total_autoproducao == 0.0 else (total_autoconsumo / total_autoproducao) * 100
     ier = 100 - iac
     
     com_bateria = bat is not None
@@ -224,7 +225,7 @@ def analisa_upac_com_armazenamento(energia, bateria, intervalo=1, eficiencia_inv
     
     return energia
 
-def calcula_12x24(energia, col, func='mean'):
+def calcula_12x24(energia, col, func='mean', quartohorario=False):
     """ Calcula matriz 12 meses x 24 horas.
 
     Parameters
@@ -235,13 +236,21 @@ def calcula_12x24(energia, col, func='mean'):
         Nome da coluna a calcular.
     func: str, default='mean'
         Função a aplicar, por defeito média.
+    quartohorario: bool, default=False
+        Se os dados são de registos de 15 em 15 minutos.
     
     Returns
     -------
     pd.DataFrame
         Dataframe com médias de energia por hora por mes.
     """
-    d_12x24 = energia.groupby([energia.index.month, energia.index.hour])[col].agg(func) #.mean()
+    if quartohorario:
+        # se registos de 15 em 15 minutos, resample para horário
+        e = energia[col].resample('H').sum()
+    else:
+        e = energia[col]
+    #d_12x24 = energia.groupby([energia.index.month, energia.index.hour])[col].agg(func) #.mean()
+    d_12x24 = e.groupby([e.index.month, e.index.hour]).agg(func) #.mean()
     d_12x24.index.names = ["mes", "hora"]
     d_12x24 = d_12x24.unstack("mes")
     return d_12x24
@@ -697,3 +706,103 @@ def plot_estudo_com_bateria(resultados, plot_c_venda_rede, ax, titulo):
     ax.set_title(titulo)
     ax.set_xlabel('PV [kWh/kWh]')
     ax.set_ylabel('BATERIA [kWh/MWh]')
+
+def plot_perfil_12x24_e_mensal(dados, nome_col, quartohorario=False):
+    """ Plot de perfil 12x24 e total mensal. Analise 12x24 da coluna indicada e
+    resample mensal usando soma.
+    
+    Parameters
+    ----------
+    dados : pd.DataFrame
+        Dataframe com as series temporais.
+    nome_col : str
+        Nome da coluna a plotar.
+    quartohorario : bool, default: False
+        Se True os dados são de registos de 15 em 15 minutos, caso False
+    """
+    dados_12_24 = calcula_12x24(dados, nome_col, quartohorario=quartohorario)
+    dados_mensal = dados[nome_col].resample('M').sum()
+
+    colors = [
+        (0, 0, 1),  # January (Blue - Winter)
+        (0, 0.5, 1),  # February
+        (0, 1, 1),  # March
+        (0, 1, 0.5),  # April
+        (0, 1, 0),  # May
+        (1, 1, 0),  # June
+        (1, 0.5, 0),  # July (Red - Peak Summer)
+        (1, 0, 0),  # August (Deep Red)
+        (1, 0.5, 0),  # September
+        (1, 1, 0),  # October
+        (0, 1, 0),  # November
+        (0, 0, 1)   # December (Back to Blue - Winter)
+    ]
+    cyclic_colormap = mcolors.LinearSegmentedColormap.from_list("seasonal_cycle", colors, N=12)
+
+    fig, ax = plt.subplots(1, 2, figsize=(10, 4))
+    dados_12_24.plot(color=[cyclic_colormap(i) for i in range(12)], ax=ax[0])
+    ax[0].grid()
+    ax[0].set_ylabel('Energia [kWh]')
+    ax[0].axvline(x=8, color='grey', linestyle='--')
+    ax[0].axvline(x=22, color='grey', linestyle='--')
+    ax[0].set_title('Média horaria da energia consumida')
+
+    width = 0.25
+    ax[1].bar(dados_mensal.index.month, dados_mensal, width=width, label=nome_col)
+    ax[1].set_title('Total mensal')
+    ax[1].set_ylabel('Energia [kWh]')
+    ax[1].grid()
+
+def plot_perfil_12x24_medio_e_acumulado(dados, nome_col, acumulado_normalizado=False, quartohorario=False):
+    """ Plot de perfil 12x24 médio e acumulado. 
+
+    Parameters
+    ----------
+    dados : pd.DataFrame
+        Dataframe com as series temporais.
+    nome_col : str
+        Nome da coluna a plotar.
+    acumulado_normalizado : bool, default: False
+        Se True o acumulado é normalizado dividindo pelo valor máximo, caso False é o acumulado total.
+    quartohorario : bool, default: False
+        Se True os dados são de registos de 15 em 15 minutos.
+    """
+    dados_12_24 = calcula_12x24(dados, nome_col, quartohorario=quartohorario)
+
+    if acumulado_normalizado:
+        dados_mensal_acumulado = dados_12_24.cumsum()
+        dados_mensal_acumulado = dados_mensal_acumulado / dados_mensal_acumulado.max()
+    else:
+        dados_mensal_acumulado = dados_12_24.cumsum()
+
+    colors = [
+        (0, 0, 1),  # January (Blue - Winter)
+        (0, 0.5, 1),  # February
+        (0, 1, 1),  # March
+        (0, 1, 0.5),  # April
+        (0, 1, 0),  # May
+        (1, 1, 0),  # June
+        (1, 0.5, 0),  # July (Red - Peak Summer)
+        (1, 0, 0),  # August (Deep Red)
+        (1, 0.5, 0),  # September
+        (1, 1, 0),  # October
+        (0, 1, 0),  # November
+        (0, 0, 1)   # December (Back to Blue - Winter)
+    ]
+    cyclic_colormap = mcolors.LinearSegmentedColormap.from_list("seasonal_cycle", colors, N=12)
+
+    fig, ax = plt.subplots(1, 2, figsize=(10, 4))
+    dados_12_24.plot(color=[cyclic_colormap(i) for i in range(12)], ax=ax[0])
+    ax[0].grid()
+    ax[0].set_ylabel('Energia [kWh]')
+    ax[0].axvline(x=8, color='grey', linestyle='--')
+    ax[0].axvline(x=22, color='grey', linestyle='--')
+    ax[0].set_title('Média horaria da energia consumida')
+
+    dados_mensal_acumulado.plot(color=[cyclic_colormap(i) for i in range(12)], ax=ax[1])
+    ax[1].grid()
+    ax[1].set_ylabel(f'{"Fraccao consumo" if acumulado_normalizado else "Energia [kWh]"}')
+    ax[1].set_title(f'Acumulado da energia consumida {"(normalizado)" if acumulado_normalizado else ""}')
+    ax[1].axvline(x=8, color='grey', linestyle='--')
+    ax[1].axvline(x=22, color='grey', linestyle='--')
+    

@@ -30,6 +30,9 @@ class PotenciaContratada(Enum):
     kVA_4_6 = 4,
     kVA_5_75 = 5,
     kVA_6_9 = 6
+    kVA_10_35 = 7,
+    kVA_13_8 = 8,
+
 
 class TarifarioEnergia(NamedTuple):
     custo_kwh_simples : float = 0.0
@@ -67,7 +70,8 @@ def datas_horario_legal(ano):
     return dom_mar, dom_out
 
 def _taxas_iva(termo_fatura, pot_contratada):
-    """ Taxas de iva aplicadas aos varios termos da fatura dada a potencia contratada
+    """ Taxas de iva aplicadas aos varios termos da fatura dada a potencia contratada.
+    Fonte: ersexplica_aplicação-do-iva_Nov2022.pdf, ERSE, Novembro 2022
 
     Args:
         termo_fatura: TermoFatura
@@ -88,12 +92,19 @@ def _taxas_iva(termo_fatura, pot_contratada):
         if termo_fatura == _TermosFatura.PotContratadaTermoFixo:
             return 0.06
         elif termo_fatura == _TermosFatura.EnergiaAteLimiar:
-            return 0.13
+            return 0.06
+    elif pot_contratada == PotenciaContratada.kVA_4_6 \
+        or pot_contratada == PotenciaContratada.kVA_5_75 \
+        or pot_contratada == PotenciaContratada.kVA_6_9:
+        if termo_fatura == _TermosFatura.PotContratadaTermoFixo:
+            return 0.23
+        elif termo_fatura == _TermosFatura.EnergiaAteLimiar:
+            return 0.06
     else:
         if termo_fatura == _TermosFatura.PotContratadaTermoFixo:
             return 0.23
         elif termo_fatura == _TermosFatura.EnergiaAteLimiar:
-            return 0.13
+            return 0.23
 
 def calcula_fatura_tarifario_simples(consumo, n_dias, custo_kwh, pot_contratada, pot_contratada_custo_dia, termo_fixo_redes_custo_dia):
     """ Calcula fatura de energia completa com iva e todos os termos para tarifario simples

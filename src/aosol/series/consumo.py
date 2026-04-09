@@ -67,7 +67,7 @@ def converter_timestamp_hora_24_para_hora_00(x):
 
     return '{} {}'.format(data.strftime('%d/%b/%Y'), hora_str)
 
-def ajustar_perfil_eredes_a_consumo_anual(perfis_eredes, consumo_anual_kwh, col, nome_col_consumo='Estimativa Consumo'):
+def ajustar_perfil_eredes_a_consumo_anual(perfis_eredes, consumo_anual_kwh, col, nome_col_consumo='Estimativa Consumo', resample_horario=True):
     r""" Ajustar o perfil e-redes a um valor de consumo anual.
 
     .. math:: `Perfil_{Ajustado} = \\frac{Perfil_{E-Redes}*Consumo_{Anual}}{1000}`
@@ -82,6 +82,8 @@ def ajustar_perfil_eredes_a_consumo_anual(perfis_eredes, consumo_anual_kwh, col,
         Nome coluna do perfil
     nome_col_consumo : str, default: 'Estimativa Consumo'
         Nome coluna com consumo na resultado. Por defeiro é 'Estimativa Consumo'.
+    resample_horario : bool, default: True
+        Se queremos fazer resample dos dados para horario depois da conversão para energia.
 
     Returns
     -------
@@ -90,7 +92,8 @@ def ajustar_perfil_eredes_a_consumo_anual(perfis_eredes, consumo_anual_kwh, col,
     """
     perfil_consumo = (perfis_eredes[col] * consumo_anual_kwh) / 1000
     #resample hourly
-    perfil_consumo = perfil_consumo.resample('H').sum()
+    if resample_horario:
+        perfil_consumo = perfil_consumo.resample('H').sum()
     return perfil_consumo.to_frame(nome_col_consumo)
 
 def ajustar_perfil_eredes_a_consumo_mensal(perfis_eredes, col_perfis, consumo_mensal, col_consumo, nome_col_consumo='Estimativa Consumo'):
