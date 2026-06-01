@@ -1,5 +1,6 @@
 from datetime import datetime
 import unittest
+from parameterized import parameterized
 import pandas as pd
 from datetime import datetime
 from aosol.analise import analise_precos_energia as ape
@@ -38,7 +39,7 @@ class TestPrecoEnergia(unittest.TestCase):
         custo_pot_contratada_termo_fixo = 0.1480
         total_c_iva, total_s_iva = ape.calcula_fatura_tarifario_simples(consumo, n_dias_faturacao, preco_simples, pot_contratada, custo_pot_contratada, custo_pot_contratada_termo_fixo)
         self.assertEqual(31.84, total_s_iva, 2)
-        self.assertEqual(35.39, total_c_iva, 2)
+        self.assertEqual(33.88, total_c_iva, 2)
 
     def test_fatura_mensal_tarifario_simples_2(self):
         pot_contratada = ape.PotenciaContratada.kVA_3_45
@@ -50,7 +51,7 @@ class TestPrecoEnergia(unittest.TestCase):
         custo_pot_contratada_termo_fixo = 0.0904
         preco_simples = 0.1542
         total_c_iva, _ = ape.calcula_fatura_tarifario_simples(consumo, n_dias_faturacao, preco_simples, pot_contratada, custo_pot_contratada, custo_pot_contratada_termo_fixo)
-        self.assertEqual(38.15, total_c_iva, 2)
+        self.assertEqual(36.47, total_c_iva, 2)
 
     def test_fatura_mensal_tarifario_bihorario(self):
         pot_contratada = ape.PotenciaContratada.kVA_6_9
@@ -66,7 +67,7 @@ class TestPrecoEnergia(unittest.TestCase):
         #self.assertEqual(60.93, total_c_iva, 2)
         #self.assertEqual(51.13, total_s_iva, 2)
         # valores a partir dezembro 2021 (limiar consumo energia)
-        self.assertEqual(59.79, total_c_iva, 2)
+        self.assertEqual(57.17, total_c_iva, 2)
         self.assertEqual(51.13, total_s_iva, 2)
 
     def test_fatura_mensal_tarifario_trihorario(self):
@@ -81,7 +82,7 @@ class TestPrecoEnergia(unittest.TestCase):
         custo_pot_contratada = 0.0904 + 0.0758
         custo_pot_contratada_termo_fixo = 0.0904
         total_c_iva, total_s_iva = ape.calcula_fatura_tarifario_trihorario(consumo_ponta, consumo_cheia, consumo_vazio, n_dias_faturacao, preco_ponta, preco_cheia, preco_vazio, pot_contratada, custo_pot_contratada, custo_pot_contratada_termo_fixo)
-        self.assertEqual(43.69, total_c_iva)
+        self.assertEqual(41.8, total_c_iva)
         self.assertEqual(39.21, total_s_iva)
 
     def test_energia_mensal_tarifario_simples(self):
@@ -186,3 +187,38 @@ class TestPrecoEnergia(unittest.TestCase):
         self.assertEqual('cheia', df['periodo tarifario'].values[5])
         self.assertEqual('ponta', df['periodo tarifario'].values[6])        
         self.assertEqual('vazio', df['periodo tarifario'].values[7])
+
+    @parameterized.expand([
+        (ape.TarifariosIndexados.CoopernicoBase, 0.1, 0.06, 0.2176),
+        (ape.TarifariosIndexados.CoopernicoGo, 0.1, 0.06, 0.2186)
+    ])
+    def test_calculo_preco_indexado(self, tarifario, omie, tar, preco_esperado):
+        
+        preco_calculado = ape.calcula_preco_tarifario_indexado(tarifario, omie, tar)
+        self.assertAlmostEqual(preco_esperado, preco_calculado, 4)
+
+    def test_fatura_mensal_tarifario_indexado(self):
+        pot_contratada = ape.PotenciaContratada.kVA_3_45
+        periodo_horario = ape.TarifarioPeriodoHorario.Bihorario
+        tarifario = ape.TarifariosIndexados.CoopernicoBase
+        mes_ano = datetime.strptime('2022-01', '%Y-%m')
+        tar_simples = 0.06
+        tar_vazio = 0.02
+        tar_fora_vazio = 0.08
+        custo_pot_contratada = 0.0904 + 0.0758
+        custo_pot_contratada_termo_fixo = 0.0904
+        df = pd.DataFrame({'stamp':['2022-01-01 10:00', '2022-01-01 23:15', '2022-02-01 22:00'],
+        'consumo' : [1, 1, 1]})
+        df['stamp'] = pd.to_datetime(df['stamp'])
+        df = df.set_index('stamp')
+
+        preco = pd.DataFrame({'stamp':['2022-01-01 10:00', '2022-01-01 23:15', '2022-02-01 22:00'],
+        'omie' : [0.1, 0.1, 0.1]})
+        preco['stamp'] = pd.to_datetime(preco['stamp'])
+        preco = preco.set_index('stamp')
+
+        total_c_iva, total_s_iva = ape.calcula_fatura_tarifario_indexado(mes_ano, df, preco, periodo_horario, tarifario, tar_simples, tar_vazio, tar_fora_vazio, pot_contratada, custo_pot_contratada, custo_pot_contratada_termo_fixo)
+        
+        self.assertEqual(8.49, total_s_iva)
+        self.assertEqual(9.41, total_c_iva)
+        

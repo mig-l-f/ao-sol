@@ -47,9 +47,10 @@ import warnings
 from .indicadores_autoconsumo import indicadores_autoconsumo
 from ..armazenamento.bateria import bateria
 from .analise_financeira import custo_energia_prosumidor
-from .analise_precos_energia import identifica_periodo_tarifario_bihorario
+from .analise_precos_energia import identifica_periodo_tarifario_bihorario, TipoTarifario
 
-def calcula_indicadores_autoconsumo(energia, pot_instalada, ef_inv, bat=None, intervalo=1):
+def calcula_indicadores_autoconsumo(energia, pot_instalada, ef_inv, bat=None, intervalo=1,
+                                    subtrai_descarga_origem_rede=False):
     """ Calcula indicadores de autoconsumo com armazenamento.
 
     A partir de um dataframe com os resultados de uma simulação, calcula os
@@ -70,13 +71,51 @@ def calcula_indicadores_autoconsumo(energia, pot_instalada, ef_inv, bat=None, in
 
     - consumo_bateria : total de energia fornecida pela bateria. [kWh]
     - perdas_bateria : perdas de energia na conversão da bateria. [kWh]
-    - num_ciclos : numero de ciclos de carregamento da bateria em 1 ano
+    - num_ciclos : numero de ciclos de carregamento da bateria em 1 ano.
+
+    Parameters
+    ----------
+    energia : pd.DataFrame
+        Dataframe com as series de consumo, autoproducao, autoconsumo, injeccao_rede e consumo_rede. As colunas 'carga_bateria' e 'descarga_bateria' são necessárias quando há bateria.
+    pot_instalada : float
+        Potência instalada do sistema fotovoltaico. [kW]
+    ef_inv : float
+        Eficiência do inversor. [0, 1]
+    bat : bateria, optional
+        Objeto da classe bateria. Se None, não calcula indicadores da bateria.
+    intervalo : float, optional
+        Intervalo de tempo entre medições. [horas]
+    subtrai_descarga_origem_rede : bool, optional
+        Se True, subtrai a parcela de descarga da bateria que teve origem na rede.
     """
     total_consumo = energia["consumo"].sum()
     total_consumo_rede = energia["consumo_rede"].sum()
     total_injeccao_rede = energia["injeccao_rede"].sum()
     total_autoconsumo = energia["autoconsumo"].sum()
     total_autoproducao = energia["autoproducao"].sum()
+    total_carga_bateria_origem_rede = 0
+    # se indicado, subtrai a parcela de descarga da bateria que teve origem na rede
+    if subtrai_descarga_origem_rede:
+        # tenta inferir a parcela de descarga que teve origem na rede a partir das colunas
+        # 'carga_bateria' e 'consumo_rede', usando a eficiência da bateria.
+        # Aqui usamos uma abordagem agregada: assumimos que toda a energia carregada
+        # da rede foi depois descarregada (eventualmente) com a eficiência do bat.
+        if bat is None:
+            warnings.warn("Para inferir descarga de origem rede é necessário fornecer o objeto 'bat' com ef_bat")
+        elif all(c in energia.columns for c in ("carga_bateria", "consumo_rede")):
+            carga_bat = energia["carga_bateria"].fillna(0.0)
+            consumo_rede = energia["consumo_rede"].fillna(0.0)
+
+            ef = bat.ef_bat if hasattr(bat, 'ef_bat') else 1.0
+
+            # soma agregada das cargas de bateria que ocorreram em instantes com consumo da rede
+            carga_origem_rede = carga_bat.where((consumo_rede > 0) & (carga_bat > 0), 0.0)
+            total_carga_bateria_origem_rede = float(carga_origem_rede.sum())
+
+            # retirar total de carga com origem na rede para perdas nao serem contabilizadas como autoconsumo
+            total_autoconsumo = max(0.0, total_autoconsumo - total_carga_bateria_origem_rede)
+        else:
+            warnings.warn("Não foi possível inferir descarga de origem rede: colunas 'carga_bateria' ou 'consumo_rede' em falta")
 
     energia = identifica_periodo_tarifario_bihorario(energia)
     total_vazio = energia.loc[(energia['periodo tarifario'] == 'vazio'), 'consumo_rede'].sum()
@@ -106,7 +145,7 @@ def calcula_indicadores_autoconsumo(energia, pot_instalada, ef_inv, bat=None, in
     return indicadores_autoconsumo(iac, ias, ier, pot_instalada, total_autoproducao, total_autoconsumo, 
                                    total_consumo_rede, total_vazio, total_fora_vazio,
                                    total_injeccao_rede, total_consumo, perdas_inversor, residuo,
-                                   com_bateria, total_descarga_bateria, perdas_bateria, n_ciclos, cap_bat)
+                                   com_bateria, total_descarga_bateria, perdas_bateria, n_ciclos, cap_bat, total_carga_bateria_origem_rede)
     
 def analisa_upac_sem_armazenamento(energia, eficiencia_inversor=1, intervalo=1):
     """ Analisa uma UPAC sem armazenamento.
@@ -424,7 +463,7 @@ def plot_despacho_energia(energia, semana):
     ax[2].xaxis.set_minor_locator(mdates.HourLocator(byhour=[0, 6, 12, 18]))
     ax[2].xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
 
-def estudo_upac_sem_bateria(consumo, producao, params_sistema, tarifario, params_financeiros, r_pv_max=3):
+def estudo_upac_sem_bateria(consumo, producao, params_sistema, tarifario_periodo_horario, params_financeiros, tipo_tarifario=TipoTarifario.Fixo, r_pv_max=3):
     """ Estudo parametrico de UPAC sem bateria.
 
     Variação do parametro r_pv para calculo do IAS (auto-suficiência) e custo de energia.
@@ -442,7 +481,7 @@ def estudo_upac_sem_bateria(consumo, producao, params_sistema, tarifario, params
 
         - consumo_anual: total anual. [kWh]
         - eficiencia_inversor : entre [0, 1]. [-]
-    tarifario : ape.Tarifario
+    tarifario_periodo_horario : ape.TarifarioPeriodoHorario
         Simples ou Bihorario.
     params_financeiros : dict
         Dicionario com parametros financeiros para calculo custo energia:
@@ -459,6 +498,8 @@ def estudo_upac_sem_bateria(consumo, producao, params_sistema, tarifario, params
         - fora_vazio_kWh: preço de compra à rede fora de vazio no tarifario bihorario. Só usado quando tarifario = tarifario.Bihorario .[€/kWh]
         - preco_venda_rede: Preco de venda da energia à rede. [€/kWh]
 
+    tipo_tarifario : TipoTarifario, default: TipoTarifario.Fixo
+        Se tarifário fixo ou indexado.
     r_pv_max : int, default: 3
         Factor maximo.
 
@@ -491,9 +532,9 @@ def estudo_upac_sem_bateria(consumo, producao, params_sistema, tarifario, params
         #params_financeiros["invest_pv"] = params_financeiros["pv_por_kW"] * pot_instalada
         #params_financeiros["invest_bat"] = 0
         params_financeiros["preco_venda_rede"] = 0.0
-        lcoe_s_venda, _, custo_medio_rede = custo_energia_prosumidor(indicadores, tarifario, params_financeiros)
+        lcoe_s_venda, _, custo_medio_rede = custo_energia_prosumidor(indicadores, energia['consumo_rede'], tarifario_periodo_horario, params_financeiros)
         params_financeiros["preco_venda_rede"] = preco_venda_rede
-        lcoe_c_venda, _, _ = custo_energia_prosumidor(indicadores, tarifario, params_financeiros)
+        lcoe_c_venda, _, _ = custo_energia_prosumidor(indicadores, energia['consumo_rede'], tarifario_periodo_horario, tipo_tarifario, params_financeiros)
 
         # guarda com frame
         indicadores = indicadores.to_frame()
@@ -571,7 +612,7 @@ def plot_estudo_sem_bateria(resultados, ax, titulo):
     labels = labels1 + labels2
     ax.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=2)
 
-def estudo_upac_com_bateria(consumo, producao, params_sistema, tarifario, params_financeiros, r_pv_max=2.5, r_bat_max=2):
+def estudo_upac_com_bateria(consumo, producao, params_sistema, tarifario_periodo_horario, params_financeiros, tipo_tarifario=TipoTarifario.Fixo, r_pv_max=2.5, r_bat_max=2):
     """ Estudo paramétrico de UPAC com bateria.
 
     Variação de parâmetros r_pv [0, 2] e r_bat [0.5, 2.5] relativos ao total de consumo e
@@ -597,7 +638,7 @@ def estudo_upac_com_bateria(consumo, producao, params_sistema, tarifario, params
         - soc_max : estado de carga máximo em fraccao da capacidade, entre [0, 1]. [-]
         - pot_maxima : potencia máxima que pode ser fornecida/retirada da bateria. [kW]
 
-    tarifario : ape.Tarifario
+    tarifario_periodo_horario : ape.TarifarioPeriodoHorario
         Simples ou Bihorario.
     params_financeiros : dict
         Dicionario com parametros financeiros para calculo custo energia:
@@ -614,6 +655,8 @@ def estudo_upac_com_bateria(consumo, producao, params_sistema, tarifario, params
         - fora_vazio_kWh: preço de compra à rede fora de vazio no tarifario bihorario. Só usado quando tarifario = tarifario.Bihorario .[€/kWh]
         - preco_venda_rede: Preco de venda da energia à rede. [€/kWh]
 
+    tipo_tarifario : TipoTarifario, default: TipoTarifario.Fixo
+        Se tarifário fixo ou indexado.
     r_pv_max : int, default: 2.5
         Factor máximo de r_pv. [kWh/kWh]
     r_bat_max : float, default: 2
@@ -652,9 +695,9 @@ def estudo_upac_com_bateria(consumo, producao, params_sistema, tarifario, params
             #params_financeiros["invest_bat"] = params_financeiros["bat_fixo"] + params_financeiros["bat_euro_por_kWh"]*cap_bat
             #params_financeiros["invest_bat"] = params_financeiros["bat_por_kWh"] * cap_bat
             params_financeiros["preco_venda_rede"] = 0.0
-            lcoe_s_venda, lcos_s_venda, _ = custo_energia_prosumidor(indicadores, tarifario, params_financeiros)
+            lcoe_s_venda, lcos_s_venda, _ = custo_energia_prosumidor(indicadores, energia['consumo_rede'], tarifario_periodo_horario, tipo_tarifario, params_financeiros)
             params_financeiros["preco_venda_rede"] = preco_venda_rede
-            lcoe_c_venda, lcos_c_venda, _ = custo_energia_prosumidor(indicadores, tarifario, params_financeiros)
+            lcoe_c_venda, lcos_c_venda, _ = custo_energia_prosumidor(indicadores, energia['consumo_rede'], tarifario_periodo_horario, tipo_tarifario, params_financeiros)
 
             # guarda como dataframe
             indicadores = indicadores.to_frame()
@@ -707,7 +750,7 @@ def plot_estudo_com_bateria(resultados, plot_c_venda_rede, ax, titulo):
     ax.set_xlabel('PV [kWh/kWh]')
     ax.set_ylabel('BATERIA [kWh/MWh]')
 
-def plot_perfil_12x24_e_mensal(dados, nome_col, quartohorario=False):
+def plot_perfil_12x24_e_mensal(dados, nome_col, quartohorario=False, agregacao_mensal='sum', ylabel='Energia [kWh]', titulo='Média horaria da energia consumida'):
     """ Plot de perfil 12x24 e total mensal. Analise 12x24 da coluna indicada e
     resample mensal usando soma.
     
@@ -719,9 +762,21 @@ def plot_perfil_12x24_e_mensal(dados, nome_col, quartohorario=False):
         Nome da coluna a plotar.
     quartohorario : bool, default: False
         Se True os dados são de registos de 15 em 15 minutos, caso False
+    agregacao_mensal : str, default: 'sum'
+        Tipo de agregação para o resample mensal, pode ser 'sum' ou 'mean'.
+    ylabel : str, default: 'Energia [kWh]'
+        Label do eixo y.
+    titulo : str, default: 'Média horaria da energia consumida'
+        Titulo do plot.
     """
     dados_12_24 = calcula_12x24(dados, nome_col, quartohorario=quartohorario)
-    dados_mensal = dados[nome_col].resample('M').sum()
+    dados_mensal = dados[nome_col].resample('M').agg(agregacao_mensal)
+    # if agregacao_mensal == 'soma':
+    #     dados_mensal = dados[nome_col].resample('M').sum()
+    # elif agregacao_mensal == 'media':
+    #     dados_mensal = dados[nome_col].resample('M').mean()
+    # else:
+    #     raise ValueError("agregacao_mensal deve ser 'soma' ou 'media'")
 
     colors = [
         (0, 0, 1),  # January (Blue - Winter)
@@ -742,15 +797,15 @@ def plot_perfil_12x24_e_mensal(dados, nome_col, quartohorario=False):
     fig, ax = plt.subplots(1, 2, figsize=(10, 4))
     dados_12_24.plot(color=[cyclic_colormap(i) for i in range(12)], ax=ax[0])
     ax[0].grid()
-    ax[0].set_ylabel('Energia [kWh]')
+    ax[0].set_ylabel(ylabel)
     ax[0].axvline(x=8, color='grey', linestyle='--')
     ax[0].axvline(x=22, color='grey', linestyle='--')
-    ax[0].set_title('Média horaria da energia consumida')
+    ax[0].set_title(titulo)
 
     width = 0.25
     ax[1].bar(dados_mensal.index.month, dados_mensal, width=width, label=nome_col)
     ax[1].set_title('Total mensal')
-    ax[1].set_ylabel('Energia [kWh]')
+    ax[1].set_ylabel(ylabel)
     ax[1].grid()
 
 def plot_perfil_12x24_medio_e_acumulado(dados, nome_col, acumulado_normalizado=False, quartohorario=False):

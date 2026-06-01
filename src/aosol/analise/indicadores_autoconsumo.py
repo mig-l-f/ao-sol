@@ -38,7 +38,7 @@ class indicadores_autoconsumo:
     def __init__(self, iac, ias, ier, capacidade_instalada, energia_autoproduzida, energia_autoconsumida, 
                  energia_rede, energia_rede_vazio, energia_rede_fora_vazio, 
                  energia_injectada_rede, consumo_total, perdas_inversor, residuo,
-                 armazenamento=False, fornecido_bateria=0, perdas_bateria=0, num_ciclos_bateria=0, capacidade_bateria=0):
+                 armazenamento=False, fornecido_bateria=0, perdas_bateria=0, num_ciclos_bateria=0, capacidade_bateria=0, energia_rede_carga_bateria=0):
         self._iac = iac
         self._ias = ias
         self._ier = ier
@@ -57,6 +57,7 @@ class indicadores_autoconsumo:
         self._perdas_bateria = perdas_bateria
         self._n_ciclos_bat = num_ciclos_bateria
         self._capacidade_bateria = capacidade_bateria
+        self._energia_rede_carga_bateria = energia_rede_carga_bateria
 
     @property
     def iac(self):
@@ -172,6 +173,12 @@ class indicadores_autoconsumo:
         """
         return self._capacidade_bateria
 
+    @property
+    def energia_rede_carga_bateria(self):
+        """ Energia consumida da rede para carregar a bateria em kWh
+        """
+        return self._energia_rede_carga_bateria
+
     def to_frame(self, label="indicadores"):
         """ Dataframe com indicadores.
         """
@@ -195,6 +202,7 @@ class indicadores_autoconsumo:
             ind["Energia fornecida bateria [kWh]"] = [self.energia_fornecida_bateria]
             ind["Perdas bateria [kWh]"] = [self.energia_perdida_bateria]
             ind["Ciclos da bateria"] = [self.num_ciclos_bateria]
+            ind["Energia rede para carga bateria [kWh]"] = [self.energia_rede_carga_bateria]
 
         ind["residuo"] = [self._residuo]
         ind = ind.set_index("label")

@@ -158,6 +158,36 @@ class AnaliseEnergiaTest(unittest.TestCase):
         self.assertAlmostEqual(1.0, ind.energia_rede_vazio, 1)
         self.assertAlmostEqual(1.1, ind.energia_rede_fora_vazio, 1)
 
+    def test_descarga_origem_rede_afeta_iac(self):
+        # Caso sintético onde parte da bateria foi carregada da rede.
+        # Sem correção IAC > 100%, com correção IAC < 100%.
+        energia = pd.DataFrame({
+            "time": ["2010-10-10 06:00", "2010-10-10 12:00"],
+            "consumo": [0.0, 2.0],
+            "autoproducao": [0.0, 1.0],
+            # autoconsumo contabiliza também descarga vinda da bateria carregada da rede
+            "autoconsumo": [0.0, 1.5],
+            # primeira linha teve consumo da rede e carregamento da bateria (origem rede)
+            "consumo_rede": [1.0, 0.0],
+            "injeccao_rede": [0.0, 0.0],
+            "carga_bateria": [1.0, 0.0],
+            "descarga_bateria": [0.0, 0.5],
+            "soc": [1.0, 0.5]
+        })
+        energia["time"] = pd.to_datetime(energia["time"])
+        energia = energia.set_index("time")
+
+        bat = bateria.bateria(1.0, 0.0, 1.0, 0.8)
+
+        ind_no = ae.calcula_indicadores_autoconsumo(energia.copy(), 1.0, 1.0, bat, 1.0, subtrai_descarga_origem_rede=False)
+        ind_yes = ae.calcula_indicadores_autoconsumo(energia.copy(), 1.0, 1.0, bat, 1.0, subtrai_descarga_origem_rede=True)
+
+        # sem correção IAC = 150% > 100
+        self.assertTrue(ind_no.iac > 100)
+        # com correção espera-se IAC abaixo de 100%
+        self.assertTrue(ind_yes.iac < 100)
+
+
     def test_calcula_12x24_horario(self):
         energia = pd.DataFrame({
             "time": ["2010-10-10 06:00", "2010-10-10 07:00", "2010-10-10 08:00", 
