@@ -329,6 +329,8 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df = pd.DataFrame({'stamp':["01/01/25 00:00", "01/01/25 00:15", "01/01/25 00:30", "01/01/25 00:45", 
                                     "01/01/25 01:00", "01/01/25 01:15", "01/01/25 01:30", "01/01/25 01:45"], 
                             'consumo_rede':[1, 0, 1, 0, 1, 0, 1, 0]})
+        df['stamp'] = pd.to_datetime(df['stamp'], format="%d/%m/%y %H:%M")
+        df.set_index('stamp', inplace=True)
         params = {
             "tempo_vida": 20,
             "tempo_vida_bat": 0,
