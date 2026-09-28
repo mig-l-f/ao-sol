@@ -1,8 +1,10 @@
+import os
 import pandas as pd
 import unittest
 from aosol.analise.indicadores_autoconsumo import indicadores_autoconsumo
 from aosol.analise import analise_financeira as af
 from aosol.analise import analise_precos_energia as ape
+from aosol.series import precos
 from IPython.display import display_html
 
 class TestAnaliseFinanceira(unittest.TestCase):
@@ -17,8 +19,8 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df['stamp'] = pd.to_datetime(df['stamp'])
         df = df.set_index('stamp')
         precos_energia = ape.TarifarioEnergia(custo_kwh_simples=0.1486, pot_contratada=ape.PotenciaContratada.kVA_3_45, pot_contratada_custo_dia=0.1480 + 0.018, pot_contratada_termo_fixo_redes_custo_dia=0.1480)
-        mensal = af.analise_poupanca_anual_fatura(df, ape.Tarifario.Simples, precos_energia, False)
-        self.assertAlmostEqual(36.43, mensal.loc['Setembro','fatura sem upac'], 2)
+        mensal = af.analise_poupanca_anual_fatura(df, ape.TarifarioPeriodoHorario.Simples, precos_energia, False)
+        self.assertAlmostEqual(33.88, mensal.loc['Setembro','fatura sem upac'], 2)
         print(mensal)
 
     def test_poupanca_anual_fatura_tarifario_bihorario(self):
@@ -41,8 +43,8 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df['stamp'] = pd.to_datetime(df['stamp'])
         df = df.set_index('stamp')
         precos_energia = ape.TarifarioEnergia(custo_bi_kwh_fora_vazio=0.1815, custo_bi_kwh_vazio=0.0958, pot_contratada=ape.PotenciaContratada.kVA_6_9, pot_contratada_custo_dia=0.2959 + 0.0188, pot_contratada_termo_fixo_redes_custo_dia=0.2959)
-        mensal = af.analise_poupanca_anual_fatura(df, ape.Tarifario.Bihorario, precos_energia, False)
-        self.assertAlmostEqual(60.86, mensal.loc['Setembro','fatura sem upac'], 2)
+        mensal = af.analise_poupanca_anual_fatura(df, ape.TarifarioPeriodoHorario.Bihorario, precos_energia, False)
+        self.assertAlmostEqual(57.17, mensal.loc['Setembro','fatura sem upac'], 2)
         print(mensal)
 
     def test_poupanca_anual_fatura_tarifario_trihorario(self):
@@ -67,8 +69,8 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df['stamp'] = pd.to_datetime(df['stamp'])
         df = df.set_index('stamp')
         precos_energia = ape.TarifarioEnergia(custo_tri_kwh_ponta=0.2336, custo_tri_kwh_cheia=0.1710, custo_tri_kwh_vazio=0.1073, pot_contratada=ape.PotenciaContratada.kVA_3_45, pot_contratada_custo_dia=0.0904 + 0.0758, pot_contratada_termo_fixo_redes_custo_dia=0.0904)
-        mensal = af.analise_poupanca_anual_fatura(df, ape.Tarifario.Trihorario, precos_energia, False, ano_tarifario=2022)
-        self.assertAlmostEqual(44.85, mensal.loc['Janeiro','fatura sem upac'], 2)
+        mensal = af.analise_poupanca_anual_fatura(df, ape.TarifarioPeriodoHorario.Trihorario, precos_energia, False, ano_tarifario=2022)
+        self.assertAlmostEqual(41.8, mensal.loc['Janeiro','fatura sem upac'], 2)
 
     def test_poupanca_anual_venda_rede(self):
         df = pd.DataFrame({'stamp':[
@@ -82,8 +84,8 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df['stamp'] = pd.to_datetime(df['stamp'])
         df = df.set_index('stamp')
         precos_energia = ape.TarifarioEnergia(preco_venda_kwh=1.0, custo_kwh_simples=0.1486, pot_contratada=ape.PotenciaContratada.kVA_3_45, pot_contratada_custo_dia=0.1480 + 0.018, pot_contratada_termo_fixo_redes_custo_dia=0.1480)
-        mensal = af.analise_poupanca_anual_fatura(df, ape.Tarifario.Simples, precos_energia, True)
-        self.assertAlmostEqual(36.43, mensal.loc['Setembro','fatura sem upac'], 2)
+        mensal = af.analise_poupanca_anual_fatura(df, ape.TarifarioPeriodoHorario.Simples, precos_energia, True)
+        self.assertAlmostEqual(33.88, mensal.loc['Setembro','fatura sem upac'], 2)
         self.assertEqual(4.0, mensal.loc['Anual','venda a rede'])
         print(mensal)
 
@@ -127,9 +129,9 @@ class TestAnaliseFinanceira(unittest.TestCase):
         'consumo_rede' : [ 130, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130]}) 
         df['stamp'] = pd.to_datetime(df['stamp'])
         df = df.set_index('stamp')
-        preco_energia = ape.TarifarioEnergia(0.1486)
-        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.0, 0.0, ape.Tarifario.Simples, preco_energia, False)
-        self.assertAlmostEqual(43.490, fin.val, 3)
+        preco_energia = ape.TarifarioEnergia(0.1486, pot_contratada_custo_dia=0.16, pot_contratada_termo_fixo_redes_custo_dia=0.08)
+        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.0, 0.0, ape.TarifarioPeriodoHorario.Simples, preco_energia, False)
+        self.assertAlmostEqual(4.343, fin.val, 3)
 
     def test_analise_financeira_tarifario_simples_faturas_com_degradacao(self):
         df = pd.DataFrame({'stamp':[
@@ -141,9 +143,9 @@ class TestAnaliseFinanceira(unittest.TestCase):
         'consumo_rede' : [ 130, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130]}) 
         df['stamp'] = pd.to_datetime(df['stamp'])
         df = df.set_index('stamp')
-        preco_energia = ape.TarifarioEnergia(0.1486)
-        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.7, 0.0, ape.Tarifario.Simples, preco_energia, False)
-        self.assertAlmostEqual(40.484, fin.val, 3)
+        preco_energia = ape.TarifarioEnergia(0.1486, pot_contratada_custo_dia=0.16, pot_contratada_termo_fixo_redes_custo_dia=0.08)
+        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.7, 0.0, ape.TarifarioPeriodoHorario.Simples, preco_energia, False)
+        self.assertAlmostEqual(1.623, fin.val, 3)
 
     def test_analise_financeira_tarifario_simples_venda_rede(self):
         df = pd.DataFrame({'stamp':[
@@ -157,8 +159,8 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df['stamp'] = pd.to_datetime(df['stamp'])
         df = df.set_index('stamp')
         preco_energia = ape.TarifarioEnergia(0.1486, preco_venda_kwh=0.07)
-        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.0, 0.0, ape.Tarifario.Simples, preco_energia, True)
-        self.assertAlmostEqual(116.225, fin.val, 3)
+        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.0, 0.0, ape.TarifarioPeriodoHorario.Simples, preco_energia, True)
+        self.assertAlmostEqual(77.26, fin.val, 3)
 
     def test_analise_financeira_tarifario_simples_venda_rede_degradacao_sistema(self):
         df = pd.DataFrame({'stamp':[
@@ -172,8 +174,8 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df['stamp'] = pd.to_datetime(df['stamp'])
         df = df.set_index('stamp')
         preco_energia = ape.TarifarioEnergia(0.1486, preco_venda_kwh=1.0)
-        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.7, 0.0, ape.Tarifario.Simples, preco_energia, True)
-        self.assertAlmostEqual(168.993, fin.val, 3)
+        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.7, 0.0, ape.TarifarioPeriodoHorario.Simples, preco_energia, True)
+        self.assertAlmostEqual(130.281, fin.val, 3)
 
     def test_analise_financeira_tarifario_simples_venda_rede_com_degradacao_sistema_e_inflacao(self):
         df = pd.DataFrame({'stamp':[
@@ -187,8 +189,8 @@ class TestAnaliseFinanceira(unittest.TestCase):
         df['stamp'] = pd.to_datetime(df['stamp'])
         df = df.set_index('stamp')
         preco_energia = ape.TarifarioEnergia(0.1486, preco_venda_kwh=0.07)
-        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.7, 2.0, ape.Tarifario.Simples, preco_energia, True)
-        self.assertAlmostEqual(60.593, fin.val, 3)
+        fin, _ = af.analise_financeira_projecto_faturas(df, 200, 0, 5, 5, 2021, 5, 0.7, 2.0, ape.TarifarioPeriodoHorario.Simples, preco_energia, True)
+        self.assertAlmostEqual(20.203, fin.val, 3)
 
     def test_analise_financeira_indicadores_autoconsumo_simples_faturas(self):
         # reproduz test simples sem degradacao, inflacao ou venda rede de AF faturas simples
@@ -204,7 +206,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         preco_energia = ape.TarifarioEnergia(0.1486)
 
         fin, _ = af.analise_financeira_projecto_indicadores_autoconsumo_faturas(indicadores, 60.0, 200, 0, 5, taxa_actualizacao, 2022, 5, 0, inflacao, preco_energia, False)
-        self.assertAlmostEqual(43.49, fin.val, 2)
+        self.assertAlmostEqual(4.52, fin.val, 2)
 
     def test_analise_financeira_indicadores_autoconsumo_venda_rede_faturas(self):
         # reproduz teste simple com venda rede AF faturas simples
@@ -219,7 +221,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         
         preco_energia = ape.TarifarioEnergia(0.1486, preco_venda_kwh=0.07)
         fin, _ = af.analise_financeira_projecto_indicadores_autoconsumo_faturas(indicadores, 60.0, 200, 0, 5, taxa_actualizacao, 2022, 5, 0, inflacao, preco_energia, True)
-        self.assertAlmostEqual(116.225, fin.val, 3)
+        self.assertAlmostEqual(77.26, fin.val, 3)
 
     def test_poupanca_anual_fatura_incorrecto_numero_colunas_sem_venda_rede(self):
         df = pd.DataFrame({'stamp':[
@@ -234,17 +236,17 @@ class TestAnaliseFinanceira(unittest.TestCase):
         precos_energia = ape.TarifarioEnergia(custo_kwh_simples=0.1486, pot_contratada=ape.PotenciaContratada.kVA_3_45, pot_contratada_custo_dia=0.1480 + 0.018, pot_contratada_termo_fixo_redes_custo_dia=0.1480)
         
         # Deve falhar com 1 ou 4 nomes
-        self.assertRaises(ValueError, af.analise_poupanca_anual_fatura, df, ape.Tarifario.Simples, precos_energia, False, ['col1'])
-        self.assertRaises(ValueError, af.analise_poupanca_anual_fatura, df, ape.Tarifario.Simples, precos_energia, False, ['col1', 'col2', 'col3','col4'])
+        self.assertRaises(ValueError, af.analise_poupanca_anual_fatura, df, ape.TarifarioPeriodoHorario.Simples, precos_energia, False, ['col1'])
+        self.assertRaises(ValueError, af.analise_poupanca_anual_fatura, df, ape.TarifarioPeriodoHorario.Simples, precos_energia, False, ['col1', 'col2', 'col3','col4'])
 
         # Nao deve falhar com 2 ou 3 nomes
         try:
-            af.analise_poupanca_anual_fatura(df, ape.Tarifario.Simples, precos_energia, False, ['consumo', 'consumo_rede'])
+            af.analise_poupanca_anual_fatura(df, ape.TarifarioPeriodoHorario.Simples, precos_energia, False, ['consumo', 'consumo_rede'])
         except ValueError:
             self.fail('Nao devia falhar sem venda a rede e 2 nomes')
         
         try:
-            af.analise_poupanca_anual_fatura(df, ape.Tarifario.Simples, precos_energia, False, ['consumo', 'consumo_rede', 'col3'])
+            af.analise_poupanca_anual_fatura(df, ape.TarifarioPeriodoHorario.Simples, precos_energia, False, ['consumo', 'consumo_rede', 'col3'])
         except ValueError:
             self.fail('Nao devia falhar sem venda a rede e 3 nomes')
 
@@ -262,11 +264,11 @@ class TestAnaliseFinanceira(unittest.TestCase):
         precos_energia = ape.TarifarioEnergia(preco_venda_kwh=1.0, custo_kwh_simples=0.1486, pot_contratada=ape.PotenciaContratada.kVA_3_45, pot_contratada_custo_dia=0.1480 + 0.018, pot_contratada_termo_fixo_redes_custo_dia=0.1480)
 
         # deve falhar com 2
-        self.assertRaises(ValueError, af.analise_poupanca_anual_fatura, df, ape.Tarifario.Simples, precos_energia, True, ['col1', 'col2'])
+        self.assertRaises(ValueError, af.analise_poupanca_anual_fatura, df, ape.TarifarioPeriodoHorario.Simples, precos_energia, True, ['col1', 'col2'])
 
         # Nao deve falhar com 3 nomes
         try:
-            af.analise_poupanca_anual_fatura(df, ape.Tarifario.Simples, precos_energia, True, ['consumo', 'consumo_rede', 'injeccao_rede'])
+            af.analise_poupanca_anual_fatura(df, ape.TarifarioPeriodoHorario.Simples, precos_energia, True, ['consumo', 'consumo_rede', 'injeccao_rede'])
         except ValueError:
             self.fail('Nao devia falhar com venda a rede e 3 nomes')
 
@@ -276,8 +278,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         params = {
             "tempo_vida": 20,
             "tempo_vida_bat": 10,
-            "invest_pv": 1000,
-            "invest_bat": 0,
+            "pv_por_kW": 1000,
             "perc_custo_manutencao": 5,
             "taxa_actualizacao": 5,
             "simples_kWh": 0.15,
@@ -287,7 +288,7 @@ class TestAnaliseFinanceira(unittest.TestCase):
         }
 
         # When
-        custo = af.custo_energia_prosumidor(ind, ape.Tarifario.Bihorario, params)
+        custo = af.custo_energia_prosumidor(ind, None, ape.TarifarioPeriodoHorario.Bihorario, ape.TipoTarifario.Fixo, params)
 
         # Then
         self.assertAlmostEqual(custo[0], 0.68, 2)
@@ -301,8 +302,9 @@ class TestAnaliseFinanceira(unittest.TestCase):
         params = {
             "tempo_vida": 20,
             "tempo_vida_bat": 10,
-            "invest_pv": 1000,
-            "invest_bat": 700,
+            "pv_por_kW": 1000,
+            "bat_por_kWh": 700,
+            "reinvestir_bat": True,
             "perc_custo_manutencao": 5,
             "taxa_actualizacao": 5,
             "simples_kWh": 0.15,
@@ -312,9 +314,41 @@ class TestAnaliseFinanceira(unittest.TestCase):
         }
 
         # When
-        custo = af.custo_energia_prosumidor(ind, ape.Tarifario.Bihorario, params)
+        custo = af.custo_energia_prosumidor(ind, None, ape.TarifarioPeriodoHorario.Bihorario, ape.TipoTarifario.Fixo, params)
 
         # Then
         self.assertAlmostEqual(custo[0], 1.41, 2)
         self.assertAlmostEqual(custo[1], 3.68, 2)
         self.assertAlmostEqual(custo[2], 0.15, 2)
+
+    def test_custo_prosumidor_indexado_sem_bateria(self):
+        # Given
+        fich = os.path.join(os.path.dirname(__file__), "omie.csv")
+        precos_serie = precos.ler_serie_omie_tfelicia(fich, unidades='€/MWh')
+        ind = indicadores_autoconsumo(0, 0, 0, 1, 0, 0, 40, 20, 20, 20, 200, 0, 0, False)
+        df = pd.DataFrame({'stamp':["01/01/25 00:00", "01/01/25 00:15", "01/01/25 00:30", "01/01/25 00:45", 
+                                    "01/01/25 01:00", "01/01/25 01:15", "01/01/25 01:30", "01/01/25 01:45"], 
+                            'consumo_rede':[1, 0, 1, 0, 1, 0, 1, 0]})
+        df['stamp'] = pd.to_datetime(df['stamp'], format="%d/%m/%y %H:%M")
+        df.set_index('stamp', inplace=True)
+        params = {
+            "tempo_vida": 20,
+            "tempo_vida_bat": 0,
+            "pv_por_kW": 1000,
+            "perc_custo_manutencao": 5,
+            "taxa_actualizacao": 5,
+            "preco_venda_rede": 0.04,            
+            "omie": precos_serie,
+            "tar_simples": 0.06,
+            "tar_vazio": 0.02,
+            "tar_fora_vazio": 0.08,
+            "tarifario_indexado": ape.TarifariosIndexados.CoopernicoBase
+        }
+
+        # When
+        custo = af.custo_energia_prosumidor(ind, df['consumo_rede'], ape.TarifarioPeriodoHorario.Simples, ape.TipoTarifario.Indexado, params)
+
+        # Then
+        self.assertAlmostEqual(custo[0], 0.65, 2)
+        self.assertAlmostEqual(custo[1], 0, 2)
+        self.assertAlmostEqual(custo[2], 0.025, 3)

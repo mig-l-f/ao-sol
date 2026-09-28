@@ -14,14 +14,18 @@ from turtle import left
 from xml.etree.ElementInclude import include
 import pandas as pd
 pd.options.mode.chained_assignment = None
-import calendar
+from calendar import Calendar, monthrange
 from typing import NamedTuple
 from enum import Enum
 
-class Tarifario(Enum):
+class TarifarioPeriodoHorario(Enum):
     Simples = 1,
     Bihorario = 2,
     Trihorario = 3
+
+class TipoTarifario(Enum):
+    Fixo = 1,
+    Indexado = 2
 
 class PotenciaContratada(Enum):
     kVA_1_15 = 1,
@@ -30,6 +34,9 @@ class PotenciaContratada(Enum):
     kVA_4_6 = 4,
     kVA_5_75 = 5,
     kVA_6_9 = 6
+    kVA_10_35 = 7,
+    kVA_13_8 = 8,
+
 
 class TarifarioEnergia(NamedTuple):
     custo_kwh_simples : float = 0.0
@@ -49,6 +56,19 @@ class _TermosFatura(Enum):
     EnergiaAteLimiar = 3,
     EnegiaAcimaLimiar = 4
 
+class TarifariosIndexados(Enum):
+    CoopernicoBase = 1,
+    CoopernicoGo = 2
+
+class _TaxasFatura(NamedTuple):
+    limiar_consumo_30_dias : float = 200.0 # kWh  
+    imposto_especial_consumo : float = 0.001 # €/kWh
+    contibuicao_audiovisual : float = 2.85 # em € valor fixo por mês
+    taxa_dgeg : float = 0.07 # em € valor fixo por mês
+    iva_imposto_especial_consumo : float = 0.23
+    iva_contribuicao_audiovisual : float = 0.06
+    iva_taxa_dgeg : float = 0.23
+
 def datas_horario_legal(ano):
     """ Horario legal de verao é do ultimo domingo de março ao ultimo domingo de outubro. O Horario legal de inverno
     vai do ultimo domingo de outubro ao ultimo domingo de março.
@@ -58,7 +78,7 @@ def datas_horario_legal(ano):
     Returns:
         [domingo de março, domingo de outubro]
     """
-    cal = calendar.Calendar(firstweekday=0)
+    cal = Calendar(firstweekday=0)
     mar = cal.monthdayscalendar(ano, 3)
     dom_mar = datetime(ano, 3, max([week[6] for week in mar if week[0]>0]))
 
@@ -67,7 +87,8 @@ def datas_horario_legal(ano):
     return dom_mar, dom_out
 
 def _taxas_iva(termo_fatura, pot_contratada):
-    """ Taxas de iva aplicadas aos varios termos da fatura dada a potencia contratada
+    """ Taxas de iva aplicadas aos varios termos da fatura dada a potencia contratada.
+    Fonte: ersexplica_aplicação-do-iva_Nov2022.pdf, ERSE, Novembro 2022
 
     Args:
         termo_fatura: TermoFatura
@@ -88,12 +109,19 @@ def _taxas_iva(termo_fatura, pot_contratada):
         if termo_fatura == _TermosFatura.PotContratadaTermoFixo:
             return 0.06
         elif termo_fatura == _TermosFatura.EnergiaAteLimiar:
-            return 0.13
+            return 0.06
+    elif pot_contratada == PotenciaContratada.kVA_4_6 \
+        or pot_contratada == PotenciaContratada.kVA_5_75 \
+        or pot_contratada == PotenciaContratada.kVA_6_9:
+        if termo_fatura == _TermosFatura.PotContratadaTermoFixo:
+            return 0.23
+        elif termo_fatura == _TermosFatura.EnergiaAteLimiar:
+            return 0.06
     else:
         if termo_fatura == _TermosFatura.PotContratadaTermoFixo:
             return 0.23
         elif termo_fatura == _TermosFatura.EnergiaAteLimiar:
-            return 0.13
+            return 0.23
 
 def calcula_fatura_tarifario_simples(consumo, n_dias, custo_kwh, pot_contratada, pot_contratada_custo_dia, termo_fixo_redes_custo_dia):
     """ Calcula fatura de energia completa com iva e todos os termos para tarifario simples
@@ -120,12 +148,9 @@ def calcula_fatura_tarifario_simples(consumo, n_dias, custo_kwh, pot_contratada,
             Custo total da fatura sem IVA em €
     """
     # valores fixos
-    limiar_consumo_30_dias = 100 # limiar de consumo em 30 dias em tarifario simples para taxa de iva intermedia
-    imposto_especial_consumo = 0.001 # €/kWh
-    contibuicao_audiovisual = 2.85 # em € valor fixo por mês
-    taxa_dgeg = 0.07 # em € valor fixo por mês
+    _taxas_fatura = _TaxasFatura()
 
-    limiar_consumo = round((n_dias / 30) * limiar_consumo_30_dias)
+    limiar_consumo = round((n_dias / 30) * _taxas_fatura.limiar_consumo_30_dias)
     # termo energia
     custo_energia_ate_limiar = min(consumo, limiar_consumo) * custo_kwh
     iva_energia_ate_limiar = custo_energia_ate_limiar * _taxas_iva(_TermosFatura.EnergiaAteLimiar, pot_contratada)
@@ -133,23 +158,16 @@ def calcula_fatura_tarifario_simples(consumo, n_dias, custo_kwh, pot_contratada,
     iva_energia_acima_limiar = custo_energia_acima_limiar * _taxas_iva(_TermosFatura.EnegiaAcimaLimiar, pot_contratada)
 
     # termo potencia contratada
-    custo_pot_contratada_termo_fixo = n_dias * termo_fixo_redes_custo_dia
-    iva_pot_contratada_termo_fixo = custo_pot_contratada_termo_fixo * _taxas_iva(_TermosFatura.PotContratadaTermoFixo, pot_contratada)
-    custo_pot_contratada_termo_var = n_dias * (pot_contratada_custo_dia - termo_fixo_redes_custo_dia)
-    iva_pot_contratada_termo_var = custo_pot_contratada_termo_var * _taxas_iva(_TermosFatura.PotContratadaTermoVariavel, pot_contratada)
-    
-    # impostos
-    custo_imposto_especial_consumo = consumo * imposto_especial_consumo
-    iva_imposto_especial_consumo = custo_imposto_especial_consumo * 0.23
-    iva_contribuicao_audiovisual = contibuicao_audiovisual * 0.06
-    iva_taxa_dgeg = taxa_dgeg * 0.23
+    custo_pot_contratada, iva_pot_contratada = _calcula_termo_potencia_contratada(pot_contratada, n_dias, pot_contratada_custo_dia, termo_fixo_redes_custo_dia)
+
+    # taxas e encargos
+    custo_imposto_especial_consumo, iva_taxas_e_encargos = _calcula_taxas_e_encargos(consumo)
 
     total_s_iva = custo_energia_ate_limiar + custo_energia_acima_limiar \
-                + custo_pot_contratada_termo_fixo + custo_pot_contratada_termo_var \
-                + custo_imposto_especial_consumo + contibuicao_audiovisual + taxa_dgeg
+                + custo_pot_contratada \
+                + custo_imposto_especial_consumo + _taxas_fatura.contibuicao_audiovisual + _taxas_fatura.taxa_dgeg
     total_iva = iva_energia_ate_limiar + iva_energia_acima_limiar \
-              + iva_pot_contratada_termo_fixo + iva_pot_contratada_termo_var \
-              + iva_imposto_especial_consumo + iva_contribuicao_audiovisual + iva_taxa_dgeg
+              + iva_pot_contratada + iva_taxas_e_encargos
     total_c_iva = total_s_iva + total_iva 
     return round(total_c_iva, 2), round(total_s_iva, 2)
 
@@ -182,15 +200,12 @@ def calcula_fatura_tarifario_bihorario(consumo_fora_vazio, consumo_vazio, n_dias
     total_s_iva : float
         Custo total da fatura sem IVA. [€]
     """
-    limiar_consumo_30_dias = 100 #
-    imposto_especial_consumo = 0.001 # €/kWh
-    contibuicao_audiovisual = 2.85 # em € valor fixo por mês
-    taxa_dgeg = 0.07 # em € valor fixo por mês
+    _taxas_fatura = _TaxasFatura()
 
     # limiar de consumo, 1º ajustar ao numero de dias de faturacao
     # para multi-horario: a taxa de IVA intermédia é aplicável até aos limiares de consumo de cada
     #  período horário, na proporção do consumo efetivamente faturado em cada período horário 
-    limiar_consumo = round(n_dias/30)*limiar_consumo_30_dias
+    limiar_consumo = round(n_dias/30)*_taxas_fatura.limiar_consumo_30_dias
     # proporcao consumo em cada periodo horario
     total_consumo = consumo_fora_vazio + consumo_vazio
     prop_fora_vazio = consumo_fora_vazio / total_consumo 
@@ -210,25 +225,18 @@ def calcula_fatura_tarifario_bihorario(consumo_fora_vazio, consumo_vazio, n_dias
     iva_energia_vazio_acima_limiar = custo_energia_vazio_acima_limiar * _taxas_iva(_TermosFatura.EnegiaAcimaLimiar, pot_contratada)
 
     # termo potencia contratada
-    custo_pot_contratada_termo_fixo = n_dias * termo_fixo_redes_custo_dia
-    iva_pot_contratada_termo_fixo = custo_pot_contratada_termo_fixo * _taxas_iva(_TermosFatura.PotContratadaTermoFixo, pot_contratada)
-    custo_pot_contratada_termo_var = n_dias * (pot_contratada_custo_dia - termo_fixo_redes_custo_dia)
-    iva_pot_contratada_termo_var = custo_pot_contratada_termo_var * _taxas_iva(_TermosFatura.PotContratadaTermoVariavel, pot_contratada)
-    
+    custo_pot_contratada, iva_pot_contratada = _calcula_termo_potencia_contratada(pot_contratada, n_dias, pot_contratada_custo_dia, termo_fixo_redes_custo_dia) 
+
     # impostos
-    custo_imposto_especial_consumo = total_consumo * imposto_especial_consumo
-    iva_imposto_especial_consumo = custo_imposto_especial_consumo * 0.23
-    iva_contribuicao_audiovisual = contibuicao_audiovisual * 0.06
-    iva_taxa_dgeg = taxa_dgeg * 0.23
+    custo_imposto_especial_consumo, iva_taxas_e_encargos = _calcula_taxas_e_encargos(total_consumo)
 
     total_s_iva = custo_energia_fora_vazio_ate_limiar + custo_energia_fora_vazio_acima_limiar \
                 + custo_energia_vazio_ate_limiar + custo_energia_vazio_acima_limiar \
-                + custo_pot_contratada_termo_fixo + custo_pot_contratada_termo_var \
-                + custo_imposto_especial_consumo + contibuicao_audiovisual + taxa_dgeg
+                + custo_pot_contratada \
+                + custo_imposto_especial_consumo + _taxas_fatura.contibuicao_audiovisual + _taxas_fatura.taxa_dgeg
     total_iva = iva_energia_fora_vazio_ate_limiar + iva_energia_fora_vazio_acima_limiar \
               + iva_energia_vazio_ate_limiar + iva_energia_vazio_acima_limiar \
-              + iva_pot_contratada_termo_fixo + iva_pot_contratada_termo_var \
-              + iva_imposto_especial_consumo + iva_contribuicao_audiovisual + iva_taxa_dgeg
+              + iva_pot_contratada + iva_taxas_e_encargos
     total_c_iva = total_s_iva + total_iva
     return round(total_c_iva, 2), round(total_s_iva, 2)
 
@@ -259,15 +267,12 @@ def calcula_fatura_tarifario_trihorario(consumo_ponta, consumo_cheia, consumo_va
         termo_fixo_redes_custo_dia : float
             Termo fixo de acesso às redes da potência contratada. Valor em €/dia
     """
-    limiar_consumo_30_dias = 100 #
-    imposto_especial_consumo = 0.001 # €/kWh
-    contibuicao_audiovisual = 2.85 # em € valor fixo por mês
-    taxa_dgeg = 0.07 # em € valor fixo por mês
+    _taxas_fatura = _TaxasFatura()
 
     # limiar de consumo, 1º ajustar ao numero de dias de faturacao
     # para multi-horario: a taxa de IVA intermédia é aplicável até aos limiares de consumo de cada
     #  período horário, na proporção do consumo efetivamente faturado em cada período horário 
-    limiar_consumo = round(n_dias/30)*limiar_consumo_30_dias
+    limiar_consumo = round(n_dias/30)*_taxas_fatura.limiar_consumo_30_dias
     # proporcao consumo em cada periodo horario
     total_consumo = consumo_ponta+consumo_cheia+consumo_vazio
     prop_ponta = consumo_ponta / total_consumo
@@ -294,30 +299,46 @@ def calcula_fatura_tarifario_trihorario(consumo_ponta, consumo_cheia, consumo_va
     iva_energia_vazio_acima_limiar = custo_energia_vazio_acima_limiar * _taxas_iva(_TermosFatura.EnegiaAcimaLimiar, pot_contratada)
 
     # termo potencia contratada
-    custo_pot_contratada_termo_fixo = n_dias * termo_fixo_redes_custo_dia
-    iva_pot_contratada_termo_fixo = custo_pot_contratada_termo_fixo * _taxas_iva(_TermosFatura.PotContratadaTermoFixo, pot_contratada)
-    custo_pot_contratada_termo_var = n_dias * (pot_contratada_custo_dia - termo_fixo_redes_custo_dia)
-    iva_pot_contratada_termo_var = custo_pot_contratada_termo_var * _taxas_iva(_TermosFatura.PotContratadaTermoVariavel, pot_contratada)
+    custo_pot_contratada, iva_pot_contratada = _calcula_termo_potencia_contratada(pot_contratada, n_dias, pot_contratada_custo_dia, termo_fixo_redes_custo_dia)
 
     # impostos
-    custo_imposto_especial_consumo = total_consumo * imposto_especial_consumo
-    iva_imposto_especial_consumo = custo_imposto_especial_consumo * 0.23
-    iva_contribuicao_audiovisual = contibuicao_audiovisual * 0.06
-    iva_taxa_dgeg = taxa_dgeg * 0.23
+    custo_imposto_especial_consumo, iva_taxas_e_encargos = _calcula_taxas_e_encargos(total_consumo)
 
     total_s_iva = custo_energia_ponta_ate_limiar + custo_energia_ponta_acima_limiar \
                 + custo_energia_cheia_ate_limiar + custo_energia_cheia_acima_limiar \
                 + custo_energia_ponta_ate_limiar + custo_energia_ponta_acima_limiar \
-                + custo_pot_contratada_termo_fixo + custo_pot_contratada_termo_var \
-                + custo_imposto_especial_consumo + contibuicao_audiovisual + taxa_dgeg
+                + custo_pot_contratada \
+                + custo_imposto_especial_consumo + _taxas_fatura.contibuicao_audiovisual + _taxas_fatura.taxa_dgeg
     total_iva = iva_energia_ponta_ate_limiar + iva_energia_ponta_acima_limiar \
               + iva_energia_cheia_ate_limiar + iva_energia_cheia_acima_limiar \
               + iva_energia_vazio_ate_limiar + iva_energia_vazio_acima_limiar \
-              + iva_pot_contratada_termo_fixo + iva_pot_contratada_termo_var \
-              + iva_imposto_especial_consumo + iva_contribuicao_audiovisual + iva_taxa_dgeg
+              + iva_pot_contratada + iva_taxas_e_encargos
     total_c_iva = total_s_iva + total_iva  
 
     return round(total_c_iva, 2), round(total_s_iva, 2)
+
+def _calcula_termo_potencia_contratada(pot_contratada, n_dias, pot_contratada_custo_dia, termo_fixo_redes_custo_dia):
+    # termo potencia contratada
+    custo_pot_contratada_termo_fixo = n_dias * termo_fixo_redes_custo_dia
+    iva_pot_contratada_termo_fixo = custo_pot_contratada_termo_fixo * _taxas_iva(_TermosFatura.PotContratadaTermoFixo, pot_contratada)
+    custo_pot_contratada_termo_var = n_dias * (pot_contratada_custo_dia - termo_fixo_redes_custo_dia)
+    iva_pot_contratada_termo_var = custo_pot_contratada_termo_var * _taxas_iva(_TermosFatura.PotContratadaTermoVariavel, pot_contratada)
+    
+    custo_pot_contratada = custo_pot_contratada_termo_fixo + custo_pot_contratada_termo_var
+    iva_pot_contratada = iva_pot_contratada_termo_fixo + iva_pot_contratada_termo_var
+
+    return custo_pot_contratada, iva_pot_contratada
+
+def _calcula_taxas_e_encargos(consumo):
+    _taxas_fatura = _TaxasFatura()
+
+    custo_imposto_especial_consumo = consumo * _taxas_fatura.imposto_especial_consumo
+    iva_imposto_especial_consumo = custo_imposto_especial_consumo * _taxas_fatura.iva_imposto_especial_consumo
+    iva_contribuicao_audiovisual = _taxas_fatura.contibuicao_audiovisual * _taxas_fatura.iva_contribuicao_audiovisual
+    iva_taxa_dgeg = _taxas_fatura.taxa_dgeg * _taxas_fatura.iva_taxa_dgeg
+
+    iva_taxas_e_encargos = iva_imposto_especial_consumo + iva_contribuicao_audiovisual + iva_taxa_dgeg
+    return custo_imposto_especial_consumo, iva_taxas_e_encargos
 
 def calcula_energia_mensal_tarifario_simples(energia, col):
     """ Calcula o consumo em cada mes da series temporal de energia. 
@@ -484,3 +505,149 @@ def identifica_periodo_tarifario_trihorario(energia, ano):
     energia.loc[(energia['bins'] == 3) | (energia['bins'] == 5), 'periodo tarifario'] = 'ponta'
 
     return energia
+
+def calcula_preco_tarifario_indexado(tarifario, omie, tar, fp=0.16, cs_cr=0.02510, tse=0.002066):
+    """ Calcula o preço de energia para tarifarios indexados, como o Coopernico Go e Coopernico Base.
+    Fonte: https://www.tiagofelicia.pt/formulas-tarifarios-indexados.html
+
+    Args:
+    -----
+        tarifario: TarifariosIndexados
+            Enum com o tarifario indexado para o qual queremos calcular o preço de energia.
+        omie: float
+            Preço de energia em OMIE para o periodo de faturacao. Valor em €/kWh.
+        tar: float
+            Tarifa de acesso às redes para o periodo de faturacao. Valor em €/kWh.
+        fp: float, default: 0.16
+            Perfil de perda.
+        cs_cr: float, default: 0.02510
+            Custo de sistema e custo de regulação. Valor actualizado semanalmente. Valor em €/kWh.
+        tse: float, default: 0.002066
+            Financiamento da tarifa social. Valor em €/kWh.
+    Returns:
+    -------
+        preco_kwh : float
+            Preço de kWh para o tarifario indexado em €
+    """
+    
+    if (tarifario == TarifariosIndexados.CoopernicoBase):
+        k = 0.009 # margem €/kWh
+        return (omie + k) * (1 + fp) + cs_cr * (1 + fp) + tar + tse
+    elif (tarifario == TarifariosIndexados.CoopernicoGo):
+        k = 0.009 # margem €/kWh
+        go = 0.001 # garantia de origem €/kWh
+        return (omie + k) * (1 + fp) + cs_cr * (1 + fp) + go + tar + tse
+    else:
+        raise ValueError(f"Tarifário indexado {tarifario} não reconhecido. Opções disponíveis: {[t for t in TarifariosIndexados]}")
+
+def calcula_serie_temporal_preco_indexado(omie, tar_simples, tar_vazio, tar_fora_vazio, tarifario_periodo_horario, tarifario_indexado):
+    """ Calcula a serie temporal de preço de energia para o tarifario indexado escolhido.
+    
+    Args:
+    -----
+    omie: pd.DataFrame
+        Dataframe com as series temporais de preços de energia em OMIE, coluna 'omie'.
+    tar_simples: float
+        Tarifa de acesso às redes para o periodo de faturacao em tarifario simples. Só usado quando TarifarioPeriodoHorario.Simples. Valor em €/kWh.
+    tar_vazio: float
+        Tarifa de acesso às redes para o periodo de faturacao em periodo vazio. Só usado quando TarifarioPeriodoHorario.Bihorario. Valor em €/kWh.
+    tar_fora_vazio: float
+        Tarifa de acesso às redes para o periodo de faturacao em periodo fora vazio. Só usado quando TarifarioPeriodoHorario.Bihorario. Valor em €/kWh.
+    tarifario_periodo_horario: TarifarioPeriodoHorario
+        Enum com o periodo horario do tarifario (simples, bi-horario)
+    tarifario_indexado: TarifariosIndexados
+        Enum com o tarifario indexado para o qual queremos calcular o preço de energia.
+
+    Returns:
+    -------
+    preco_kwh : pd.Series
+        Serie temporal de preço de energia para o tarifario indexado em €/kWh.
+    """
+    if tarifario_periodo_horario != TarifarioPeriodoHorario.Simples and tarifario_periodo_horario != TarifarioPeriodoHorario.Bihorario:
+        raise NotImplementedError("Cálculo de série temporal de preço indexado apenas implementado para tarifário simples e bi-horário.")
+    
+    df = omie.copy()
+    if tarifario_periodo_horario == TarifarioPeriodoHorario.Bihorario:
+        df = identifica_periodo_tarifario_bihorario(df)
+        df['tar'] = df['periodo tarifario'].map({'vazio': tar_vazio, 'fora vazio': tar_fora_vazio})
+    else:
+        df['tar'] = tar_simples
+
+    df['preco_kwh'] = df.apply(lambda r: calcula_preco_tarifario_indexado(tarifario_indexado, float(r['omie']), float(r['tar'])), axis=1)
+    return df['preco_kwh']
+
+def calcula_fatura_tarifario_indexado(mes_ano, consumo, omie, periodo_horario, tarifario_indexado, tar_simples, tar_vazio, tar_fora_vazio, pot_contratada, pot_contratada_custo_dia, termo_fixo_redes_custo_dia):
+    """ Calcula fatura de energia completa com iva e todos os termos par tarifarios indexados.
+    
+    Args:
+    -----
+        mes_ano: datetime
+            Mês e ano para o qual queremos calcular a fatura.
+        consumo: pd.DataFrame
+            Dataframe com as series temporais de consumo. Deve conter valores para o mes em questão
+        omie: pd.DataFrame
+            Dataframe com as series temporais de preços de energia em OMIE. Deve conter valores para o mes em questão.
+        periodo_horario: ape.Tarifario
+            Enum com o periodo horario do tarifario (simples, bi-horario ou tri-horario)
+        tarifario_indexado: TarifariosIndexados
+            Enum com o tarifario indexado para o qual queremos calcular a fatura.
+        tar_simples: float
+            Tarifa de acesso às redes para o periodo de faturacao em tarifario simples. Valor em €/kWh.
+        tar_vazio: float
+            Tarifa de acesso às redes para o periodo de faturacao em periodo vazio. Valor em €/kWh.
+        tar_fora_vazio: float
+            Tarifa de acesso às redes para o periodo de faturacao em periodo fora vazio. Valor em €/kWh.
+        pot_contratada: PotenciaContratada
+            Enum com a potencia contratada em kVA
+        pot_contratada_custo_dia: float
+            Termo potência contratada. Valor em €/dia.
+        termo_fixo_redes_custo_dia: float
+            Termo fixo de acesso às redes da potência contratada. Valor em €/dia.
+
+    Returns:
+    -------
+        total_c_iva : float
+            Custo total da fatura com IVA em €
+        total_s_iva : float
+            Custo total da fatura sem IVA em €
+    """
+    cons_col = 'consumo'
+    omie_col = 'omie'
+    _taxas_fatura = _TaxasFatura()
+    # filtrar mês/ano
+    mes = mes_ano.month
+    ano = mes_ano.year
+    consumo_m = consumo.loc[(consumo.index.year==ano)&(consumo.index.month==mes), [cons_col]]
+    omie_m    = omie.loc[(omie.index.year==ano)&(omie.index.month==mes), [omie_col]]
+    df = consumo_m.join(omie_m, how='inner')
+
+    df['preco_kwh'] = calcula_serie_temporal_preco_indexado(omie_m, tar_simples, tar_vazio, tar_fora_vazio, periodo_horario, tarifario_indexado)
+    df['custo_energia'] = df['preco_kwh'] * df[cons_col]
+
+    total_custo_energia = df['custo_energia'].sum()
+    total_consumo = df[cons_col].sum()
+    preco_medio_energia = total_custo_energia / total_consumo
+
+    # aplicar limiar consumo 30 dias
+    n_dias = monthrange(ano, mes)[1]
+    limiar_consumo = round((n_dias / 30) * _taxas_fatura.limiar_consumo_30_dias)
+
+    # termo energia
+    custo_energia_ate_limiar = min(total_consumo, limiar_consumo) * preco_medio_energia
+    iva_energia_ate_limiar = custo_energia_ate_limiar * _taxas_iva(_TermosFatura.EnergiaAteLimiar, pot_contratada)
+    custo_energia_acima_limiar = max(0, total_consumo-limiar_consumo) * preco_medio_energia
+    iva_energia_acima_limiar = custo_energia_acima_limiar * _taxas_iva(_TermosFatura.EnegiaAcimaLimiar, pot_contratada)
+
+    # termo potencia contratada
+    custo_pot_contratada, iva_pot_contratada = _calcula_termo_potencia_contratada(pot_contratada, n_dias, pot_contratada_custo_dia, termo_fixo_redes_custo_dia)
+
+    # taxas e encargos
+    custo_imposto_especial_consumo, iva_taxas_e_encargos = _calcula_taxas_e_encargos(total_consumo)
+
+    total_s_iva = custo_energia_ate_limiar + custo_energia_acima_limiar \
+                + custo_pot_contratada \
+                + custo_imposto_especial_consumo + _taxas_fatura.contibuicao_audiovisual + _taxas_fatura.taxa_dgeg
+    total_iva = iva_energia_ate_limiar + iva_energia_acima_limiar \
+              + iva_pot_contratada + iva_taxas_e_encargos
+    total_c_iva = total_s_iva + total_iva 
+    return round(total_c_iva, 2), round(total_s_iva, 2)

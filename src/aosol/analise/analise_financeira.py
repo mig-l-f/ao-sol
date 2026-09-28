@@ -47,7 +47,7 @@ MESES_COMPLETO = {1: 'Janeiro', 2:'Fevereiro', 3: u'Março', 4:'Abril',
                9:'Setembro', 10:'Outubro', 11:'Novembro', 12:'Dezembro'}
 
 def analise_poupanca_anual_fatura(energia
-                                , tarifario
+                                , tarifario_periodo_horario
                                 , precos_energia
                                 , venda_rede
                                 , nome_cols=['consumo', 'consumo_rede', 'injeccao_rede']
@@ -60,8 +60,8 @@ def analise_poupanca_anual_fatura(energia
     energia : pandas.DataFrame
         Deve conter colunas para 'consumo' e 'consumo_rede'. Adicionalmente a coluna 'injeccao_rede'
         se a venda a rede for incluida. Nomes especificados em nome_cols
-    tarifario: ape.Tarifario
-        Tipo de tarifário a utilizar: simples, bihorario, trihorario
+    tarifario_periodo_horario: ape.TarifarioPeriodoHorario
+        Periodo horário do tarifário a utilizar: simples, bihorario, trihorario
     precos_energia : ape.TarifarioEnergia
         Preços de energia e venda à rede. 
     venda_rede : bool
@@ -86,7 +86,7 @@ def analise_poupanca_anual_fatura(energia
     col_injeccao = nome_cols[2] if venda_rede else ''
 
     # lambda energia e tarifario correspondente
-    if (tarifario == ape.Tarifario.Simples):
+    if (tarifario_periodo_horario == ape.TarifarioPeriodoHorario.Simples):
         func_energia = lambda ener, col, ano : ape.calcula_energia_mensal_tarifario_simples(ener, col)
         # x contem energia mensal do tarifario simples, consumo esta na coluna 'consumo'
         func_calculo_faturas = lambda x : ape.calcula_fatura_tarifario_simples(x[col_consumo], \
@@ -95,7 +95,7 @@ def analise_poupanca_anual_fatura(energia
             precos_energia.pot_contratada, \
             precos_energia.pot_contratada_custo_dia, \
             precos_energia.pot_contratada_termo_fixo_redes_custo_dia) 
-    elif (tarifario == ape.Tarifario.Bihorario):
+    elif (tarifario_periodo_horario == ape.TarifarioPeriodoHorario.Bihorario):
         func_energia = lambda ener, col, ano : ape.calcula_energia_mensal_tarifario_bihorario(ener, col)
         # x contem energia mensal do tarifario bihorario, consumos nas colunas 'fora_vazio' e 'vazio'
         func_calculo_faturas = lambda x : ape.calcula_fatura_tarifario_bihorario(x['fora_vazio'], x['vazio'], \
@@ -104,7 +104,7 @@ def analise_poupanca_anual_fatura(energia
             precos_energia.pot_contratada, \
             precos_energia.pot_contratada_custo_dia, \
             precos_energia.pot_contratada_termo_fixo_redes_custo_dia) 
-    elif (tarifario == ape.Tarifario.Trihorario):
+    elif (tarifario_periodo_horario == ape.TarifarioPeriodoHorario.Trihorario):
         func_energia = lambda ener, col, ano : ape.calcula_energia_mensal_tarifario_trihorario(ener, col, ano)
         func_calculo_faturas = lambda x : ape.calcula_fatura_tarifario_trihorario(x['ponta'], x['cheia'], x['vazio'], \
             monthrange(x.name.year, x.name.month)[1], \
@@ -160,11 +160,12 @@ def analise_financeira_projecto_faturas(energia
                                       , tempo_vida                               
                                       , taxa_degradacao_sistema
                                       , taxa_inflacao
-                                      , tarifario
+                                      , tarifario_periodo_horario
                                       , precos_energia
                                       , venda_rede
                                       , nome_cols=['consumo', 'consumo_rede', 'injeccao_rede']
-                                      , indicadores_autoconsumo = None):
+                                      , indicadores_autoconsumo = None
+                                      , tipo_tarifario = ape.TipoTarifario.Fixo):
     """ Calcula VAL, TIR e Tempo de retorno de projecto, LCOE utilizando o método dos cash-flows descontados. 
     Poupança calculada a partir do valores da faturas.
 
@@ -189,8 +190,8 @@ def analise_financeira_projecto_faturas(energia
         Taxa degradação energia do sistema por ano. [%]
     taxa_inflacao : float
         Taxa de inflação do preços energia. [%]
-    tarifario: ape.Tarifario
-        Tipo de tarifário: simples, bihorario, trihorario
+    tarifario_periodo_horario: ape.TarifarioPeriodoHorario
+        Periodo horário do tarifário a utilizar: simples, bihorario, trihorario
     precos_energia : ape.TarifarioEnergia
         Preços de energia e venda à rede.
     venda_rede : bool
@@ -200,7 +201,9 @@ def analise_financeira_projecto_faturas(energia
     indicadores_autoconsumo : indicadores_autoconsumo, default: None
         Necessario para calculo do lcoe, necessita da capacidade instalada e horas equivalentes.
         Se None o lcoe não é calculado
-
+    tipo_tarifario : TipoTarifario, default: TipoTarifario.Fixo
+        Tipo de tarifário, fixo ou indexado.
+        
     Returns
     -------
     data: indicadores_financeiros
@@ -231,7 +234,7 @@ def analise_financeira_projecto_faturas(energia
     infl = taxa_inflacao / 100
 
     # Lambdas
-    if (tarifario == ape.Tarifario.Simples):
+    if (tarifario_periodo_horario == ape.TarifarioPeriodoHorario.Simples):
         func_energia = lambda ener, col, ano : ape.calcula_energia_mensal_tarifario_simples(ener, col)
         # custo sem upac é o consumo total e precos alterados de inflacao
         func_custo_sem_upac_mensal_faturas = lambda cons_mensal, infl, ano_op, ano : \
@@ -250,7 +253,7 @@ def analise_financeira_projecto_faturas(energia
                                                     precos_energia.pot_contratada, \
                                                     precos_energia.pot_contratada_custo_dia*(1+infl)**ano_op, \
                                                     precos_energia.pot_contratada_termo_fixo_redes_custo_dia*(1+infl)**ano_op)[0], axis=1)
-    elif (tarifario == ape.Tarifario.Bihorario):
+    elif (tarifario_periodo_horario == ape.TarifarioPeriodoHorario.Bihorario):
         func_energia = lambda ener, col, ano : ape.calcula_energia_mensal_tarifario_bihorario(ener, col)
         # custo sem upac é o consumo total e precos alterados de inflacao
         func_custo_sem_upac_mensal_faturas = lambda cons_mensal, infl, ano_op, ano : \
@@ -272,7 +275,7 @@ def analise_financeira_projecto_faturas(energia
                                                  precos_energia.pot_contratada_custo_dia*(1+infl)**ano_op, \
                                                  precos_energia.pot_contratada_termo_fixo_redes_custo_dia*(1+infl)**ano_op)[0], axis=1)
                                             
-    elif (tarifario == ape.Tarifario.Trihorario):
+    elif (tarifario_periodo_horario == ape.TarifarioPeriodoHorario.Trihorario):
         func_energia = lambda ener, col, ano : ape.calcula_energia_mensal_tarifario_trihorario(ener, col, ano)
         # custo sem upac é o consumo total e precos alterados de inflacao
         func_custo_sem_upac_mensal_faturas = lambda cons_mensal, infl, ano_op, ano : \
@@ -343,12 +346,13 @@ def analise_financeira_projecto_faturas(energia
 
     # COE prosumidor
     coe_prosumidor = 0
-    if (indicadores_autoconsumo is not None) and (tarifario is not ape.Tarifario.Trihorario):
+    if (indicadores_autoconsumo is not None) and (tarifario_periodo_horario is not ape.TarifarioPeriodoHorario.Trihorario):
         params = {
             "tempo_vida": tempo_vida,
             "tempo_vida_bat": int(tempo_vida / 2),
-            "invest_pv": invest_pv,
-            "invest_bat": invest_bat,
+            "pv_por_kW": invest_pv / indicadores_autoconsumo.capacidade_instalada,
+            "bat_por_kWh": invest_bat / indicadores_autoconsumo.capacidade_bateria if indicadores_autoconsumo.com_armazenamento else 0,
+            "reinvestir_bat": False,
             "perc_custo_manutencao": perc_custo_om,
             "taxa_actualizacao": taxa_actualizacao,
             "simples_kWh": precos_energia.custo_kwh_simples,
@@ -356,7 +360,7 @@ def analise_financeira_projecto_faturas(energia
             "fora_vazio_kWh": precos_energia.custo_bi_kwh_fora_vazio,
             "preco_venda_rede": precos_energia.preco_venda_kwh
         }
-        coe_prosumidor, _, _ = custo_energia_prosumidor(indicadores_autoconsumo, tarifario, params)
+        coe_prosumidor, _, _ = custo_energia_prosumidor(indicadores_autoconsumo, energia['consumo_rede'], tarifario_periodo_horario, tipo_tarifario, params)
 
     return indicadores_financeiros(val, tir, tr, capex, opex, tempo_vida, lcoe, coe_prosumidor), financeiro
 
@@ -497,8 +501,9 @@ def analise_financeira_projecto_indicadores_autoconsumo_faturas(indicadores_auto
         params = {
             "tempo_vida": tempo_vida,
             "tempo_vida_bat": int(tempo_vida / 2),
-            "invest_pv": invest_pv,
-            "invest_bat": invest_bat,
+            "pv_por_kW": invest_pv / indicadores_autoconsumo.capacidade_instalada,
+            "bat_por_kWh": invest_bat / indicadores_autoconsumo.capacidade_bateria if indicadores_autoconsumo.com_armazenamento else 0,
+            "reinvestir_bat": False,
             "perc_custo_manutencao": perc_custo_om,
             "taxa_actualizacao": taxa_actualizacao,
             "simples_kWh": precos_energia.custo_kwh_simples,
@@ -506,11 +511,11 @@ def analise_financeira_projecto_indicadores_autoconsumo_faturas(indicadores_auto
             "fora_vazio_kWh": precos_energia.custo_bi_kwh_fora_vazio,
             "preco_venda_rede": precos_energia.preco_venda_kwh
         }
-        coe_prosumidor, _, _ = custo_energia_prosumidor(indicadores_autoconsumo, ape.Tarifario.Simples, params)
+        coe_prosumidor, _, _ = custo_energia_prosumidor(indicadores_autoconsumo, None, ape.TarifarioPeriodoHorario.Simples, ape.TipoTarifario.Fixo, params)
 
     return indicadores_financeiros(val, tir, tr, capex, opex, tempo_vida, lcoe, coe_prosumidor), financeiro
 
-def custo_energia_prosumidor(indicadores_autoconsumo, tarifario, params_financeiros):
+def custo_energia_prosumidor(indicadores_autoconsumo, consumo_rede, tarifario_periodo_horario, tipo_tarifario, params_financeiros):
     """ Custo da energia na perspectiva do prosumidor.
 
     Custo da energia ao longo da vida do projecto englobando o investimento em UPAC/baterias, 
@@ -520,21 +525,31 @@ def custo_energia_prosumidor(indicadores_autoconsumo, tarifario, params_financei
     ----------
     indicadores_autoconsumo : indicadores_autoconsumo
         Indicadores de autoconsumo apos analise de energia.
-    tarifario : Tarifario
-        Tipo de tarifario, so disponivel simples e bihorario.
+    consumo_rede : pd.Series
+        Serie com o consumo de energia da rede.
+    tarifario_periodo_horario : TarifarioPeriodoHorario
+        Periodo horário do tarifário a utilizar: simples, bihorario, trihorario.
+    tipo_tarifario : TipoTarifario
+        Tipo de tarifário, fixo ou indexado.
     params_financeiros : dict
         Dicionario com os parametros financeiros, seguintes parametros:
 
         - tempo_vida: tempo de vida do projecto. [anos]
         - tempo_vida_bat: tempo de vida da bateria. [anos]
-        - invest_pv : custo investimento  pv. [€]
-        - invest_bat : custo investimento bateria. [€]
+        - pv_por_kW: preco por kW de PV instalado. [€/kW]
+        - bat_por_kWh: preco por kWh de bateria instalado. [€/kWh]
+        - reinvestir_bat: considerar reinvestimento numa 2a bateria. [bool]
         - perc_custo_manutencao: percentagem do investimento gasto em manutenção anual. [%]
         - taxa_actualização: taxa de actualização. [%]
-        - simples_kWh: preço compra à rede em tarifário simples. Só usado quando tarifario = tarifario.Simples. [€/kWh]
-        - vazio_kWh: preço de compra à rede em vazio no tarifario bihorario. Só usado quando tarifario = tarifario.Bihorario. [€/kWh]
-        - fora_vazio_kWh: preço de compra à rede fora de vazio no tarifario bihorario. Só usado quando tarifario = tarifario.Bihorario .[€/kWh]
+        - simples_kWh: preço compra à rede em tarifário simples. Para quando TipoTarifario.Fixo e TarifarioPeriodoHorario.Simples. [€/kWh]
+        - vazio_kWh: preço de compra à rede em vazio no tarifario bihorario.Para quando TipoTarifario.Fixo e TarifarioPeriodoHorario.Bihorario. [€/kWh]
+        - fora_vazio_kWh: preço de compra à rede fora de vazio no tarifario bihorario. Para quando TipoTarifario.Fixo e TarifarioPeriodoHorario.Bihorario .[€/kWh]
         - preco_venda_rede: Preco de venda da energia à rede. [€/kWh]
+        - omie: serie temporal do omie para o period de analise. Para quando TipoTarifario.Indexado. [€/kWh]
+        - tar_simples: tarifa acesso as redes para TarifarioPeriodoHorario.Simples. Para quando TipoTarifario.Indexado. [€/kWh]
+        - tar_vazio: tarifa acesso as redes em vazio para TarifarioPeriodoHorario.Bihorario. Para quando TipoTarifario.Indexado. [€/kWh]
+        - tar_fora_vazio: tarifa acesso as redes fora de vazio para TarifarioPeriodoHorario.Bihorario. Para quando TipoTarifario.Indexado. [€/kWh] 
+        - tarifario_indexado: qual o ape.TarifariosIndexado a utilizar. Para quando TipoTarifario.Indexado.
 
     Returns
     -------
@@ -554,26 +569,38 @@ def custo_energia_prosumidor(indicadores_autoconsumo, tarifario, params_financei
 
     custo_medio_compra_rede = 0
     total_consumo_rede = indicadores_autoconsumo.energia_rede
-    if tarifario == ape.Tarifario.Simples:
-        compra_rede = total_consumo_rede * params_financeiros["simples_kWh"]
-        custo_medio_compra_rede = params_financeiros["simples_kWh"]
-    elif tarifario == ape.Tarifario.Bihorario:
-        total_vazio = indicadores_autoconsumo.energia_rede_vazio
-        total_fora_vazio = indicadores_autoconsumo.energia_rede_fora_vazio
-        compra_rede = total_vazio * params_financeiros["vazio_kWh"] + total_fora_vazio * params_financeiros["fora_vazio_kWh"]
+    if tipo_tarifario == ape.TipoTarifario.Fixo:
+        if tarifario_periodo_horario == ape.TarifarioPeriodoHorario.Simples:
+            compra_rede = total_consumo_rede * params_financeiros["simples_kWh"]
+            custo_medio_compra_rede = params_financeiros["simples_kWh"]
+        elif tarifario_periodo_horario == ape.TarifarioPeriodoHorario.Bihorario:
+            total_vazio = indicadores_autoconsumo.energia_rede_vazio
+            total_fora_vazio = indicadores_autoconsumo.energia_rede_fora_vazio
+            compra_rede = total_vazio * params_financeiros["vazio_kWh"] + total_fora_vazio * params_financeiros["fora_vazio_kWh"]
+            custo_medio_compra_rede = compra_rede / total_consumo_rede
+        else:
+            raise Exception('Custo de energia so aceita tarifario simples ou bihorario.')
+    elif tipo_tarifario == ape.TipoTarifario.Indexado:
+        preco_indexado_kwh = ape.calcula_serie_temporal_preco_indexado(params_financeiros["omie"], params_financeiros["tar_simples"], params_financeiros["tar_vazio"], params_financeiros["tar_fora_vazio"], tarifario_periodo_horario, params_financeiros["tarifario_indexado"])
+        compra_rede_serie = consumo_rede * preco_indexado_kwh
+        compra_rede = compra_rede_serie.sum()
         custo_medio_compra_rede = compra_rede / total_consumo_rede
     else:
-        raise Exception('Custo de energia so aceita tarifario simples ou bihorario.')
+        raise Exception('Tipo tarifario deve ser fixo ou indexado.')
     
-    invest_pv = params_financeiros["invest_pv"]
+    #invest_pv = params_financeiros["invest_pv"]
+    invest_pv = params_financeiros["pv_por_kW"] * indicadores_autoconsumo.capacidade_instalada
     om = params_financeiros["perc_custo_manutencao"] / 100.0
     i = params_financeiros["taxa_actualizacao"] / 100.0
 
     invest_bat = 0
     if indicadores_autoconsumo.com_armazenamento:
-        invest_bat = params_financeiros["invest_bat"]
+        invest_bat = params_financeiros["bat_por_kWh"] * indicadores_autoconsumo.capacidade_bateria
         # taxa desconto e segundo investimento em bateria ao longo do tempo de vida
-        invest_bat = invest_bat * (1 + 1/(pow(1+i, params_financeiros["tempo_vida_bat"])))
+        reinvestimento_bat = invest_bat / (pow(1+i, params_financeiros["tempo_vida_bat"])) if params_financeiros["reinvestir_bat"] else 0
+        #invest_bat = params_financeiros["invest_bat"]
+        #invest_bat = invest_bat * (1 + 1/(pow(1+i, params_financeiros["tempo_vida_bat"])))
+        invest_bat += reinvestimento_bat
 
     crf = (i * pow(1.0+i, params_financeiros["tempo_vida"])) / (pow(1.0+i,params_financeiros["tempo_vida"]) - 1.0)
     a = (invest_pv + invest_bat) * (crf + om)

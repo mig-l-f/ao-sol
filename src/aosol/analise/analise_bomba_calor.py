@@ -104,14 +104,14 @@ def calcula_indicadores_bomba_calor(energia_bc, t_consumo=40):
       """     
       e_tot_usada_bc = energia_bc["energia_usada_bc"].sum()
       e_tot_resist = energia_bc["energia_resist"].sum()
-      e_extraida_bc = energia_bc["energia_extr_aqs"].sum()
+      e_extraida_aqs = energia_bc["energia_extr_aqs"].sum()
       e_termica_bc = energia_bc["energia_bc"].sum()
       e_tot_perd_dep = energia_bc["energia_perd_dep"].sum()
 
-      scop = e_extraida_bc / (e_tot_resist + e_tot_usada_bc)
+      scop = e_extraida_aqs / (e_tot_resist + e_tot_usada_bc)
       frac_resist = e_tot_resist / (e_termica_bc + e_tot_resist)
       n_horas_abaixo_min = (energia_bc['t_deposito'] < t_consumo-1e-5).sum()
       n_dias = (energia_bc.index[-1] - energia_bc.index[0]).days + 1 #inclusive
 
-      return indicadores_bomba_calor(scop, e_termica_bc, e_tot_usada_bc, e_tot_resist, e_tot_perd_dep, frac_resist, n_horas_abaixo_min, n_dias)
+      return indicadores_bomba_calor(scop, e_termica_bc, e_tot_usada_bc, e_tot_resist, e_tot_perd_dep, e_extraida_aqs, frac_resist, n_horas_abaixo_min, n_dias)
                                    

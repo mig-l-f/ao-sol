@@ -5,3 +5,6 @@ docs/sphinx/build
 autobuild.sh
 */sphinx/source/autoapi
 *bomba_calor_dev.xlsx
+temp_*.xlsx
+15min_*.xlsx
+funcao-saturacao-bateria.xlsx
