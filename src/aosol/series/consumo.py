@@ -250,4 +250,76 @@ def leitura_ficheiros_mensais_medicao_eredes(pasta, ano, col_consumo="Dados de C
         df = df.resample('H').sum()
     return df
 
+def leitura_ficheiro_medicao_eredes(fich, col_consumo, col_producao, resample_horario=True, worksheet="Dados de Energia", n_linhas_cabecalho=7, converter_energia=True):
+    """ Leitura de ficheiro excel com os dados medidos de consumo obtidos do balcao digital e-redes.
+
+    Parameters
+    ----------
+    fich : str
+        Caminho para o ficheiro
+    col_consumo : str
+        Nome da coluna com dados de consumo. Tem de existir no ficheiro.
+    col_producao : str
+        Nome da coluna com dados de produção. Pode não existir.
+    resample_horario : bool, default: True
+        Se queremos fazer resample dos dados para horario depois da conversão para energia. Utilizada soma.
+    worksheet : str, default: "Dados de Energia"
+        Nome da folha excel a ler, tem de ser o mesmo em todos os ficheiros
+    n_linhas_cabecalho : int, default: 7
+        Numero de linhas ate ao cabecalho das colunas nos ficheiros.
+    converter_energia : bool, default: True
+        Se queremos converter de potencia para energia.
+
+    Returns
+    -------
+    df : pandas.DataFrame
+        Dataframe com coluna 'consumo' com dados em kwh e 'producao' em kwh se estiver disponivel
+
+    Notes
+    -----
+
+    Colunas do ficheiro eredes:
+
+    ======================================== =================
+    Coluna                                   Descrição
+    ======================================== =================
+    Consumo medido na IC, Ativa (kW)          Diagrama de carga do consumo medido calculado como o saldo quarto-horário, quando seja positivo, entre a potência consumida da rede e a potência injetada na rede, em kW.
+    Injeção na rede medida na IC, Ativa (kW)  Diagrama de carga da energia injetada na rede calculado como o saldo quarto-horário, quando seja positivo, entre a potência injetada na rede e a potência consumida da rede, em kW.
+    Consumo registado, Ativa (kW)             Potência média de consumo registado no contador, no intervalo de 15 minutos, em kW.
+    Injeção registada, Ativa (kW)             Potência média de injecção registada no contador, no intervalo de 15 minutos, em kW.
+    ======================================== =================
+
+    """
+    df = pd.read_excel(fich, worksheet, skiprows=n_linhas_cabecalho)
+    df["Timestamp"] = df["Data"] + " " + df["Hora"]
+    df["Timestamp"] = pd.to_datetime(df["Timestamp"])
+    df = df.set_index("Timestamp")
+    df = df.drop("Data", axis=1)
+    df = df.drop("Hora", axis=1)
+    # renomear colunas
+    df = df.rename(columns={col_consumo:'consumo'})
+    cols = ['consumo']
+    if col_producao in df.columns:
+        df = df.rename(columns={col_producao:'producao'})
+        cols.append('producao')
+
+    # apenas guardar colunas de interesse
+    df = df.drop(columns=[col for col in df.columns if col not in cols])
+
+    # se houver virgulas como separador decimal, converter para ponto
+    df[cols] = df[cols].apply(
+        lambda s: pd.to_numeric(s.astype(str).str.replace(',', '.', regex=False), errors='coerce')
+    )
+
+    # converter para kwh
+    if (converter_energia):
+        df['consumo'] = df['consumo']*15/60
+        if 'producao' in df.columns:
+            df['producao'] = df['producao']*15/60
+
+    if (resample_horario):
+        # resample para horario
+        df = df.resample('H').sum()
+    
+    return df
     

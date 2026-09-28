@@ -6,6 +6,7 @@ from scipy import optimize
 import pyomo.environ as pyo
 import aosol.analise.analise_energia as ae
 import aosol.analise.analise_financeira as af
+import aosol.analise.analise_precos_energia as ape
 from aosol.armazenamento.bateria import bateria
 
 
@@ -481,7 +482,6 @@ def optimiza_sistema(df, params):
             - 'capacidade_bat': capacidade do sistema de armazenamento [kWh]
             - 'n_bat': vida útil do sistema de armazenamento em anos
             - 'capex_bat': custo de investimento do sistema de armazenamento [€]
-            - 'ciclos_bat_ano': número de ciclos de carga/descarga do sistema de armazenamento por ano
             - 'DoD': profundidade de descarga do sistema de armazenamento (em decimal, por exemplo, 0.8 para 80%)
             - 'Pmax': potência máxima de carga/descarga do sistema de armazenamento [kW]
             - 'ef_carga_bat': eficiência de carga do sistema de armazenamento (em decimal, por exemplo, 0.9 para 90%)
@@ -577,7 +577,7 @@ def optimiza_sistema(df, params):
     # SOC
     def regra_soc(m, t):
         if t == 0:
-            return m.soc[t] == params["capacidade_bat"] * 0.5
+            return m.soc[t] == soc_min #params["capacidade_bat"] * 0.5
         return m.soc[t] == m.soc[t-1] + (
             m.carga_bateria[t] * params["ef_carga_bat"]
             - m.descarga_bateria[t] / params["ef_descarga_bat"]

@@ -85,3 +85,21 @@ class TestConsumo(unittest.TestCase):
         self.assertEqual(4, len(consumo_ajustado))
         self.assertEqual(1, consumo_ajustado['consumo'].sum())
         
+    def test_leitura_ficheiro_eredes(self):
+        # Given
+        ficheiro = os.path.join(os.path.dirname(__file__), "teste_eredes.xlsx")
+        
+        # When
+        resultado = consumo.leitura_ficheiro_medicao_eredes(
+            fich=ficheiro,
+            col_consumo="Consumo medido na IC, Ativa (kW)",
+            col_producao="Injeção na rede medida na IC, Ativa (kW)",
+            resample_horario=False,
+            worksheet="Leituras",
+            n_linhas_cabecalho=7,
+            converter_energia=False
+        )
+
+        # Then
+        self.assertEqual(0.108, resultado.loc[resultado.index[0], "consumo"])
+        self.assertEqual(0.02, resultado.loc[resultado.index[1], "producao"])
